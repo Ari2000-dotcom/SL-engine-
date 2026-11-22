@@ -1,0 +1,7 @@
+/target
+/data
+/config/*.duckdb
+/config/*.enc
+.env
+web/node_modules
+web/dist

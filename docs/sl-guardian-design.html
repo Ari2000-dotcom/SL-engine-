@@ -1,0 +1,310 @@
+<title>SL Guardian Design</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: RMS console. Left rail of section links on desktop, single column on phone; dense tables, severity colour carries state. */
+:root{
+  --bg:#f3f5f7; --surface:#ffffff; --fg:#14202b; --muted:#5b6b78; --line:#d6dde3;
+  --accent:#0f6e86; --accent-soft:#e1f0f4;
+  --red:#c2362b; --red-soft:#fbe7e5; --amber:#a86a00; --amber-soft:#fdf1da;
+  --green:#1d7a46; --green-soft:#e2f3e8; --grey:#6c7884; --grey-soft:#eceff2;
+  --code-bg:#eef2f5;
+  --f-display:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e151c; --surface:#151f28; --fg:#e3eaf0; --muted:#93a3b0; --line:#26343f;
+  --accent:#4fb7cf; --accent-soft:#16303a;
+  --red:#ff7a6e; --red-soft:#3a1a18; --amber:#f0b44a; --amber-soft:#35290f;
+  --green:#5cc98a; --green-soft:#12301f; --grey:#9aa7b2; --grey-soft:#1f2a33; --code-bg:#1b2731;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e151c; --surface:#151f28; --fg:#e3eaf0; --muted:#93a3b0; --line:#26343f;
+  --accent:#4fb7cf; --accent-soft:#16303a;
+  --red:#ff7a6e; --red-soft:#3a1a18; --amber:#f0b44a; --amber-soft:#35290f;
+  --green:#5cc98a; --green-soft:#12301f; --grey:#9aa7b2; --grey-soft:#1f2a33; --code-bg:#1b2731;
+  color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.55;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 48px}
+.wrap{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:200px minmax(0,1fr);gap:40px}
+nav{position:sticky;top:env(safe-area-inset-top,0px);align-self:start;padding-top:32px;display:flex;flex-direction:column;gap:4px;font-size:13px}
+nav a{color:var(--muted);text-decoration:none;padding:4px 8px;border-left:2px solid transparent}
+nav a:hover,nav a:focus-visible{color:var(--accent);border-left-color:var(--accent);outline:none}
+main{min-width:0;padding-top:32px;display:flex;flex-direction:column;gap:48px}
+header{display:flex;flex-direction:column;gap:12px}
+.eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+h1{font-family:var(--f-display);font-size:clamp(32px,5vw,48px);line-height:1.05;margin:0;text-wrap:balance}
+h2{font-family:var(--f-display);font-size:26px;margin:0 0 4px;text-wrap:balance}
+h3{font-size:15px;font-weight:600;margin:18px 0 8px;font-family:var(--f-mono);color:var(--accent)}
+p{margin:0;max-width:70ch}
+.lede{font-size:17px;color:var(--muted);max-width:68ch}
+.monitor-only{display:inline-flex;gap:8px;align-items:center;font-family:var(--f-mono);font-size:12px;padding:6px 10px;border:1px solid var(--accent);color:var(--accent);border-radius:4px;width:fit-content}
+section{display:flex;flex-direction:column;gap:14px}
+.sub{color:var(--muted);font-size:14px}
+code,.mono{font-family:var(--f-mono);font-size:12.5px}
+code{background:var(--code-bg);padding:1px 5px;border-radius:3px}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--f-mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--grey-soft);white-space:nowrap}
+tr:last-child td{border-bottom:none}
+td code{white-space:nowrap}
+.pill{display:inline-block;font-family:var(--f-mono);font-size:11px;font-weight:600;padding:2px 7px;border-radius:3px;white-space:nowrap}
+.r{background:var(--red-soft);color:var(--red)} .a{background:var(--amber-soft);color:var(--amber)}
+.g{background:var(--green-soft);color:var(--green)} .k{background:var(--grey-soft);color:var(--grey)}
+.warn{color:var(--amber);font-weight:600}
+.arch{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px;overflow-x:auto}
+.arch svg{display:block;min-width:760px;width:100%;height:auto}
+.arch text{font-family:var(--f-mono);font-size:12px;fill:var(--fg)}
+.arch .lbl{fill:var(--muted);font-size:11px}
+.arch .box{fill:var(--surface);stroke:var(--line);stroke-width:1.2}
+.arch .hot{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.2}
+.arch .ln{stroke:var(--muted);stroke-width:1.2;fill:none}
+.arch .ah{fill:var(--muted)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.card h4{margin:0;font-size:14px;font-family:var(--f-mono)}
+.card ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;font-size:14px}
+ol.rules{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:8px;max-width:80ch}
+.tabs{display:flex;flex-wrap:wrap;gap:6px}
+.tabs button{font:inherit;font-family:var(--f-mono);font-size:12px;padding:6px 12px;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:4px;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tbl-head{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;margin-top:14px}
+.tbl-head b{font-family:var(--f-mono);font-size:14px}
+.tbl-head span{color:var(--muted);font-size:13px}
+.checklist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.checklist li{display:flex;gap:10px;align-items:flex-start;max-width:80ch}
+.checklist li::before{content:"";flex:none;width:14px;height:14px;margin-top:4px;border:1.5px solid var(--accent);border-radius:3px}
+@media (max-width:860px){.wrap{grid-template-columns:minmax(0,1fr)}nav{display:none}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+<nav aria-label="Sections">
+  <a href="#overview">Overview</a>
+  <a href="#arch">Architecture</a>
+  <a href="#rules">Leg rules</a>
+  <a href="#mapping">Broker mapping</a>
+  <a href="#tables">Tables</a>
+  <a href="#dashboard">Dashboard</a>
+  <a href="#phases">Build phases</a>
+  <a href="#needs">What I need</a>
+</nav>
+<main>
+<header id="overview">
+  <div class="eyebrow">RMS · design v1 · Kotak Neo · Zerodha Kite · Angel One</div>
+  <h1>SL Guardian</h1>
+  <p class="lede">A monitor for an RMS desk. It reads every client's order book, trade book and positions across brokers, and flags any open leg that has no stop-loss, a partial stop-loss, a rejected or cancelled one, or one placed at the wrong price.</p>
+  <div class="monitor-only">READ-ONLY · never places, modifies or cancels orders</div>
+</header>
+
+<section>
+  <h2>Decisions so far</h2>
+  <div class="grid2">
+    <div class="card"><h4>Scope</h4><ul>
+      <li>Many client accounts per install</li>
+      <li>v1 brokers: Kotak Neo, Kite, Angel. Others plug in through an adapter.</li>
+      <li>Every leg needs its own SL. There is no basket or MTM exemption.</li></ul></div>
+    <div class="card"><h4>Runtime</h4><ul>
+      <li>Rust (tokio, axum) backend with a React dashboard</li>
+      <li>Daily automatic TOTP login at 08:45 IST</li>
+      <li>Order websocket plus a 5-second full poll as a safety net</li></ul></div>
+    <div class="card"><h4>Storage and alerts</h4><ul>
+      <li>Day data in Parquet, read with DuckDB, wiped at 08:30</li>
+      <li>Live dashboard with sound and a desktop popup</li>
+      <li>Telegram and mobile push come later</li></ul></div>
+  </div>
+</section>
+
+<section id="arch">
+  <h2>Architecture</h2>
+  <p class="sub">There is one supervisor task per broker account. Live prices are fetched once per symbol and shared across all accounts. The rule engine is a pure function, so every status in it can be unit-tested.</p>
+  <div class="arch">
+  <svg viewBox="0 0 940 330" role="img" aria-label="Data flow from broker APIs through normalizer and rule engine to dashboard and storage">
+    <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah" d="M0,0L10,5L0,10z"/></marker></defs>
+    <rect class="box" x="10" y="20" width="170" height="70" rx="5"/><text x="22" y="45">Kotak Neo</text><text class="lbl" x="22" y="64">REST + /realtime ws</text>
+    <rect class="box" x="10" y="130" width="170" height="70" rx="5"/><text x="22" y="155">Zerodha Kite</text><text class="lbl" x="22" y="174">REST + ws.kite.trade</text>
+    <rect class="box" x="10" y="240" width="170" height="70" rx="5"/><text x="22" y="265">Angel One</text><text class="lbl" x="22" y="284">REST + smart-order-update</text>
+    <rect class="box" x="230" y="40" width="190" height="250" rx="5"/>
+    <text x="244" y="66">AccountSupervisor</text><text class="lbl" x="244" y="84">× each account</text>
+    <text class="lbl" x="244" y="118">LoginManager (TOTP)</text>
+    <text class="lbl" x="244" y="142">OrderStream (ws)</text>
+    <text class="lbl" x="244" y="166">Poller 5s</text>
+    <text class="lbl" x="244" y="190">rate limiter</text>
+    <text class="lbl" x="244" y="214">orders · trades</text>
+    <text class="lbl" x="244" y="232">positions · GTT</text>
+    <rect class="box" x="230" y="300" width="190" height="0" rx="0"/>
+    <rect class="hot" x="470" y="40" width="180" height="60" rx="5"/><text x="484" y="66">Normalizer</text><text class="lbl" x="484" y="84">broker JSON → canonical</text>
+    <rect class="box" x="470" y="130" width="180" height="60" rx="5"/><text x="484" y="156">LtpService</text><text class="lbl" x="484" y="174">dedup symbols</text>
+    <rect class="hot" x="470" y="220" width="180" height="70" rx="5"/><text x="484" y="246">RuleEngine</text><text class="lbl" x="484" y="264">snapshot + risk → LegStatus</text>
+    <rect class="box" x="700" y="20" width="220" height="70" rx="5"/><text x="714" y="46">IncidentTracker</text><text class="lbl" x="714" y="64">open · ack · resolve</text>
+    <rect class="box" x="700" y="130" width="220" height="70" rx="5"/><text x="714" y="156">Store</text><text class="lbl" x="714" y="174">Parquet / DuckDB</text>
+    <rect class="box" x="700" y="240" width="220" height="70" rx="5"/><text x="714" y="266">axum API + /ws</text><text class="lbl" x="714" y="284">→ React dashboard</text>
+    <path class="ln" marker-end="url(#ar)" d="M180,55H228"/>
+    <path class="ln" marker-end="url(#ar)" d="M180,165H228"/>
+    <path class="ln" marker-end="url(#ar)" d="M180,275H228"/>
+    <path class="ln" marker-end="url(#ar)" d="M420,70H468"/>
+    <path class="ln" marker-end="url(#ar)" d="M420,160H468"/>
+    <path class="ln" marker-end="url(#ar)" d="M560,100V218"/>
+    <path class="ln" marker-end="url(#ar)" d="M650,250L698,60"/>
+    <path class="ln" marker-end="url(#ar)" d="M650,260L698,170"/>
+    <path class="ln" marker-end="url(#ar)" d="M650,275H698"/>
+    <path class="ln" marker-end="url(#ar)" d="M810,90V128"/>
+  </svg>
+  </div>
+</section>
+
+<section id="rules">
+  <h2>Leg rules</h2>
+  <p class="sub">A leg is identified by account, exchange, symbol and product. It is open while its net quantity is not zero. A protecting order is an SL, SL-M or GTT-SL order on the same leg, on the exit side, in a live state (pending new, open, trigger pending or modify pending).</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Status</th><th>Severity</th><th>Condition</th></tr></thead>
+    <tbody>
+      <tr><td><span class="pill k">GRACE</span></td><td>none</td><td>The first fill was less than <code>grace_sec</code> ago (default 15s)</td></tr>
+      <tr><td><span class="pill r">NO_SL</span></td><td>red</td><td>No protecting order exists</td></tr>
+      <tr><td><span class="pill r">SL_REJECTED</span></td><td>red</td><td>No protecting order, and the latest SL on this leg today was rejected. The reason is shown.</td></tr>
+      <tr><td><span class="pill r">SL_CANCELLED</span></td><td>red</td><td>No protecting order, and the latest SL on this leg today was cancelled</td></tr>
+      <tr><td><span class="pill r">WRONG_SIDE</span></td><td>red</td><td>Long with trigger ≥ LTP, or short with trigger ≤ LTP</td></tr>
+      <tr><td><span class="pill a">PARTIAL_SL</span></td><td>amber</td><td>Σ pending SL qty &lt; |net qty|</td></tr>
+      <tr><td><span class="pill a">OVER_COVERED</span></td><td>amber</td><td>Σ pending SL qty &gt; |net qty|, so the SL could open a reverse position</td></tr>
+      <tr><td><span class="pill a">TOO_FAR</span></td><td>amber</td><td><b>PCT</b> mode: |trigger − avg| ÷ avg × 100 &gt; max %. <b>RUPEE</b> mode: |trigger − avg| × |qty| × multiplier &gt; max ₹. The admin chooses the mode.</td></tr>
+      <tr><td><span class="pill g">PROTECTED</span></td><td>green</td><td>None of the above apply</td></tr>
+      <tr><td><span class="pill k">STALE_DATA</span></td><td>grey</td><td>The login failed, or the last good poll is more than 20s old. Stale data is never shown as green.</td></tr>
+    </tbody></table></div>
+</section>
+
+<section id="mapping">
+  <h2>Broker mapping</h2>
+  <p class="sub">The field names come from the broker API docs repo (<span class="mono">marketcalls/broker-api-docs</span>). Each broker module translates its fields into the canonical columns on the left.</p>
+
+  <h3>Orders</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Canonical</th><th>Zerodha /orders</th><th>Angel getOrderBook</th><th>Kotak /quick/user/orders</th></tr></thead>
+    <tbody>
+      <tr><td>broker_order_id</td><td><code>order_id</code></td><td><code>orderid</code></td><td><code>nOrdNo</code></td></tr>
+      <tr><td>exchange</td><td><code>exchange</code></td><td><code>exchange</code></td><td><code>exSeg</code> (nse_fo→NFO)</td></tr>
+      <tr><td>symbol / token</td><td><code>tradingsymbol</code> / <code>instrument_token</code></td><td><code>tradingsymbol</code> / <code>symboltoken</code></td><td><code>trdSym</code> / <code>tok</code> (ws)</td></tr>
+      <tr><td>side</td><td><code>transaction_type</code></td><td><code>transactiontype</code></td><td><code>trnsTp</code> B/S</td></tr>
+      <tr><td>kind</td><td><code>order_type</code> SL · SL-M</td><td><code>ordertype</code> STOPLOSS_LIMIT · STOPLOSS_MARKET</td><td><code>prcTp</code> SL · SL-M</td></tr>
+      <tr><td>product</td><td><code>product</code> MIS·NRML·CNC·MTF</td><td><code>producttype</code> INTRADAY·CARRYFORWARD·DELIVERY·MARGIN</td><td><code>prod</code> MIS·NRML·CNC·MTF</td></tr>
+      <tr><td>qty / filled / pending</td><td><code>quantity</code> / <code>filled_quantity</code> / <code>pending_quantity</code></td><td><code>quantity</code> / <code>filledshares</code> / <code>unfilledshares</code></td><td><code>qty</code> / <code>fldQty</code> / <code>unFldSz</code></td></tr>
+      <tr><td>trigger_price</td><td><code>trigger_price</code></td><td><code>triggerprice</code></td><td><span class="warn">Not in the docs. Confirm on a live account.</span></td></tr>
+      <tr><td>status / reason</td><td><code>status</code> / <code>status_message</code></td><td><code>orderstatus</code> / <code>text</code></td><td><code>ordSt</code> / <code>rejRsn</code></td></tr>
+      <tr><td>timestamp</td><td><code>order_timestamp</code></td><td><code>updatetime</code></td><td><code>ordDtTm</code></td></tr>
+    </tbody></table></div>
+
+  <h3>Positions</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Canonical</th><th>Zerodha positions.net</th><th>Angel getPosition</th><th>Kotak /quick/user/positions</th></tr></thead>
+    <tbody>
+      <tr><td>net_qty</td><td><code>quantity</code></td><td><code>netqty</code> (string)</td><td>(<code>cfBuyQty</code>+<code>flBuyQty</code>)−(<code>cfSellQty</code>+<code>flSellQty</code>)</td></tr>
+      <tr><td>avg_price</td><td><code>average_price</code></td><td><code>totalbuyavgprice</code> / <code>totalsellavgprice</code></td><td>(<code>cfBuyAmt</code>+<code>buyAmt</code>) ÷ buy qty</td></tr>
+      <tr><td>ltp</td><td><code>last_price</code></td><td>from LtpService</td><td>from LtpService</td></tr>
+      <tr><td>multiplier / lot</td><td><code>multiplier</code></td><td><code>multiplier</code>, <code>lotsize</code></td><td><code>multiplier</code>, <code>lotSz</code></td></tr>
+    </tbody></table></div>
+
+  <h3>Login, streams and limits</h3>
+  <div class="tbl"><table>
+    <thead><tr><th></th><th>Zerodha</th><th>Angel</th><th>Kotak</th></tr></thead>
+    <tbody>
+      <tr><td>Login</td><td>request_token → <code>/session/token</code>, checksum SHA-256. Expires at 06:00.</td><td><code>loginByPassword</code> (clientcode, MPIN, TOTP). Expires at midnight.</td><td><code>tradeApiLogin</code> (TOTP), then <code>tradeApiValidate</code> (MPIN), which returns token, sid and baseUrl</td></tr>
+      <tr><td>Order websocket</td><td><code>wss://ws.kite.trade</code> text frames with <code>type:"order"</code></td><td><code>wss://tns.angelone.in/smart-order-update</code>, ping every 10s</td><td><code>wss://&lt;baseUrl&gt;/realtime</code> with a raw <code>{type:cn}</code> handshake</td></tr>
+      <tr><td>LTP</td><td><code>/quote/ltp</code>: 1000 instruments, 1 req/s</td><td><code>market/v1/quote</code>: 50 tokens, about 1 req/s</td><td><code>…/neosymbol/…/ltp</code></td></tr>
+      <tr><td>GTT as SL</td><td><code>/gtt/triggers</code> (active only)</td><td><code>gtt/v1/ruleList</code></td><td>none</td></tr>
+      <tr><td>Rate limit</td><td>10/s</td><td><b>1/s each</b> for the order, trade and position books</td><td>10/s in total</td></tr>
+    </tbody></table></div>
+</section>
+
+<section id="tables">
+  <h2>Tables</h2>
+  <p class="sub">Two stores. <b>app.duckdb</b> holds the setup (clients, accounts, users, risk settings) and is kept permanently. The <b>daily folder</b> <span class="mono">data/YYYY-MM-DD/</span> holds Parquet files that are deleted at 08:30 IST each morning.</p>
+  <div class="tabs" role="tablist" aria-label="Table groups">
+    <button role="tab" id="tab-persist" aria-selected="true" aria-controls="panel-persist">Persistent (app.duckdb)</button>
+    <button role="tab" id="tab-daily" aria-selected="false" aria-controls="panel-daily">Daily (Parquet)</button>
+  </div>
+  <div id="panel-persist" role="tabpanel" aria-labelledby="tab-persist"></div>
+  <div id="panel-daily" role="tabpanel" aria-labelledby="tab-daily" hidden></div>
+</section>
+
+<section id="dashboard">
+  <h2>Dashboard</h2>
+  <div class="grid2">
+    <div class="card"><h4>Overview · admin</h4><p class="sub">One card per client with red, amber and green counts and a login-health badge. A sound and a browser notification fire on every new red.</p></div>
+    <div class="card"><h4>Legs</h4><p class="sub">The live leg_status grid, filtered by client, broker, segment and status. It shows the distance in % and the risk in ₹.</p></div>
+    <div class="card"><h4>Incidents</h4><p class="sub">Today's open, acknowledged and resolved incidents. Acknowledging silences the sound but does not close the incident.</p></div>
+    <div class="card"><h4>Risk settings · admin</h4><p class="sub">A PCT or RUPEE mode switch, limits per segment and per client, and the grace period.</p></div>
+    <div class="card"><h4>Accounts · admin</h4><p class="sub">Add clients, broker accounts and secrets. Shows today's login status and has a retry-login button.</p></div>
+    <div class="card"><h4>Client view</h4><p class="sub">The Legs and Incidents pages, filtered on the server to the signed-in client's own legs.</p></div>
+  </div>
+</section>
+
+<section id="phases">
+  <h2>Build phases</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Phase</th><th>Work</th><th>Done when</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td><code>core</code> enums, models, rule engine and a mock broker</td><td>Scenario tests pass for every leg status</td></tr>
+      <tr><td>2</td><td><code>store</code>: Parquet writer, DuckDB reader, daily rollover, app.duckdb migrations</td><td>The rollover test deletes yesterday's folder and leaves app.duckdb untouched</td></tr>
+      <tr><td>3</td><td>Kite adapter, then Angel, then Kotak</td><td>Normalizer tests pass on fixtures from the docs and on a live read-only account</td></tr>
+      <tr><td>4</td><td>LtpService, Supervisor, IncidentTracker</td><td>The mock replay opens and resolves incidents</td></tr>
+      <tr><td>5</td><td>axum API, /ws, auth, React dashboard</td><td>A position with no SL shows red within about 5s</td></tr>
+      <tr><td>Later</td><td>Telegram, mobile push, more brokers</td><td>To be decided</td></tr>
+    </tbody></table></div>
+</section>
+
+<section id="needs">
+  <h2>What I need from you</h2>
+  <ul class="checklist">
+    <li>One test account per broker, with API keys and the TOTP secret, to confirm the field names. Kotak's trigger-price field and status spellings matter most.</li>
+    <li>For Kite: a multi-user (business) Kite Connect app, or one app per client. Also confirm that automated TOTP login is allowed under each broker's terms.</li>
+    <li>Default risk limits per segment (EQ, FUT, OPT, CUR, COM), and the default grace period.</li>
+    <li>A permanent project folder, for example <code>D:\sl-guardian</code>.</li>
+    <li>A host machine (Windows PC or VPS) with Rust and Node 20 or newer.</li>
+  </ul>
+</section>
+</main>
+</div>
+
+<script>
+const T = {
+persist: [
+ ["brokers","Broker registry",[["broker_code PK","VARCHAR","KOTAK · ZERODHA · ANGEL"],["display_name","VARCHAR",""],["enabled","BOOLEAN",""],["rate_limits_json","JSON","req/s per endpoint"],["ws_enabled","BOOLEAN",""]]],
+ ["clients","One row per client",[["client_id PK","VARCHAR","internal id"],["name","VARCHAR",""],["group_name","VARCHAR","RM or branch"],["active","BOOLEAN",""],["telegram_chat_id","VARCHAR NULL","reserved for the Telegram phase"],["created_at","TIMESTAMP",""]]],
+ ["broker_accounts","A client can have several accounts",[["account_id PK","VARCHAR",""],["client_id FK","VARCHAR",""],["broker_code FK","VARCHAR",""],["broker_user_id","VARCHAR","Kite user_id · Angel clientcode · Kotak UCC"],["enabled","BOOLEAN",""],["login_at","TIME","default 08:45"],["accept_gtt_as_sl","BOOLEAN","default true"],["created_at","TIMESTAMP",""]]],
+ ["account_secrets","AES-256-GCM, master key from the environment",[["account_id PK FK","VARCHAR",""],["ciphertext","BLOB","Kite: api_key, api_secret, password, totp · Angel: api_key, clientcode, mpin, totp · Kotak: access_token, mobile, ucc, mpin, totp"],["nonce","BLOB",""],["key_version","INTEGER",""],["updated_at","TIMESTAMP",""]]],
+ ["users","Dashboard logins",[["user_id PK","VARCHAR",""],["username UNIQUE","VARCHAR",""],["password_hash","VARCHAR","argon2id"],["role","VARCHAR","ADMIN · CLIENT"],["client_id FK NULL","VARCHAR","required for CLIENT"],["active","BOOLEAN",""],["last_login_at","TIMESTAMP",""]]],
+ ["risk_settings","Lookup order: client+segment → client+ALL → global+segment → global+ALL",[["scope","VARCHAR","GLOBAL · CLIENT"],["scope_id","VARCHAR","* or client_id"],["segment","VARCHAR","EQ · FUT · OPT · CUR · COM · ALL"],["mode","VARCHAR","PCT · RUPEE"],["max_pct","DOUBLE NULL","used in PCT mode"],["max_rupee","DOUBLE NULL","per leg, RUPEE mode"],["grace_sec","INTEGER","default 15"],["updated_by / updated_at","",""]]],
+ ["settings_audit","Who changed what",[["ts","TIMESTAMP",""],["user_id","VARCHAR",""],["table_name","VARCHAR",""],["key","VARCHAR",""],["old_json / new_json","JSON",""]]]
+],
+daily: [
+ ["sessions","Snapshot · today's broker logins",[["account_id","VARCHAR",""],["broker_code","VARCHAR",""],["status","VARCHAR","OK · FAILED · EXPIRED"],["logged_in_at / expires_at","TIMESTAMP",""],["token_enc","BLOB","encrypted, so a mid-day restart needs no fresh login"],["last_error","VARCHAR",""]]],
+ ["orders","Snapshot · latest version of every order",[["account_id, client_id, broker_code","VARCHAR",""],["broker_order_id, exch_order_id, parent_order_id","VARCHAR",""],["exchange, segment, symbol, token","VARCHAR",""],["side, kind, product","VARCHAR","canonical enums"],["qty, filled_qty, pending_qty","BIGINT",""],["price, trigger_price","DOUBLE",""],["state / status_raw / reject_reason","VARCHAR","raw broker text kept"],["tag","VARCHAR",""],["order_ts, updated_ts","TIMESTAMP",""],["source","VARCHAR","POLL · WS · GTT"]]],
+ ["order_events","Append · every state change (this is how a cancelled SL is caught)",[["ts","TIMESTAMP",""],["account_id, broker_order_id","VARCHAR",""],["prev_state → new_state","VARCHAR",""],["status_raw, reject_reason","VARCHAR",""],["trigger_price","DOUBLE",""],["pending_qty","BIGINT",""],["source","VARCHAR",""]]],
+ ["trades","Append · deduplicated on account_id + trade_id",[["account_id, broker_order_id, trade_id","VARCHAR",""],["exchange, symbol, side, product","VARCHAR",""],["qty","BIGINT",""],["price","DOUBLE",""],["fill_ts","TIMESTAMP","used to start the grace timer"]]],
+ ["positions","Snapshot",[["account_id, client_id","VARCHAR",""],["exchange, segment, symbol, token, product","VARCHAR",""],["net_qty, overnight_qty","BIGINT","net_qty is signed"],["avg_price, ltp","DOUBLE",""],["ltp_ts","TIMESTAMP",""],["lot_size, multiplier","DOUBLE",""],["first_fill_ts, updated_ts","TIMESTAMP",""]]],
+ ["leg_status","Snapshot · one row per open leg; this is what the dashboard shows",[["leg_key","VARCHAR","account+exchange+symbol+product"],["account_id, client_id, broker_code","VARCHAR",""],["exchange, segment, symbol, product","VARCHAR",""],["net_qty","BIGINT",""],["avg_price, ltp","DOUBLE",""],["sl_order_ids","VARCHAR[]",""],["sl_qty","BIGINT",""],["sl_trigger","DOUBLE","nearest trigger"],["risk_mode, limit_value","VARCHAR / DOUBLE",""],["dist_pct, risk_rupee","DOUBLE",""],["status, severity","VARCHAR",""],["since_ts, evaluated_ts","TIMESTAMP",""]]],
+ ["incidents","Snapshot · today's incidents",[["incident_id","VARCHAR",""],["leg_key, account_id, client_id, symbol","VARCHAR",""],["first_status, worst_status, current_status","VARCHAR",""],["opened_ts, acknowledged_ts, resolved_ts","TIMESTAMP",""],["acknowledged_by","VARCHAR",""],["resolution","VARCHAR","SL_PLACED · POSITION_CLOSED · MANUAL"],["unprotected_secs","INTEGER",""]]],
+ ["incident_events","Append",[["ts","TIMESTAMP",""],["incident_id","VARCHAR",""],["from_status → to_status","VARCHAR",""],["detail_json","JSON",""]]],
+ ["alerts_log","Append · DASHBOARD and SOUND now; TELEGRAM and PUSH later",[["ts","TIMESTAMP",""],["incident_id","VARCHAR",""],["channel, target","VARCHAR",""],["result, error","VARCHAR",""]]],
+ ["api_health","Append, sampled",[["ts","TIMESTAMP",""],["account_id, endpoint","VARCHAR",""],["latency_ms","INTEGER",""],["http_status, error_code, error_msg","VARCHAR",""]]],
+ ["instruments","Snapshot · daily scrip master",[["broker_code, exchange, symbol, token","VARCHAR",""],["instrument_type, option_type","VARCHAR",""],["expiry","DATE",""],["strike, tick_size","DOUBLE",""],["lot_size","INTEGER",""]]]
+]};
+function esc(s){return String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]))}
+function render(key, el){
+  el.innerHTML = T[key].map(([name,desc,cols])=>
+   `<div class="tbl-head"><b>${esc(name)}</b><span>${esc(desc)}</span></div>
+    <div class="tbl"><table><thead><tr><th>Column</th><th>Type</th><th>Note</th></tr></thead><tbody>${
+     cols.map(c=>`<tr><td><code>${esc(c[0])}</code></td><td class="mono">${esc(c[1])}</td><td>${esc(c[2])}</td></tr>`).join("")
+    }</tbody></table></div>`).join("");
+}
+render("persist", document.getElementById("panel-persist"));
+render("daily", document.getElementById("panel-daily"));
+document.querySelectorAll('.tabs button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.tabs button').forEach(x=>{x.setAttribute('aria-selected', x===b?'true':'false');
+    document.getElementById(x.getAttribute('aria-controls')).hidden = x!==b;});
+}));
+</script>
