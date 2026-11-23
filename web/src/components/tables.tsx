@@ -1,13 +1,13 @@
-import { CheckmarkFilled } from '../icons';
+import { CheckmarkFilled, Table } from '../icons';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { BROKER_NAME, fmtAgo, fmtClock, fmtDuration, fmtInt, fmtPct, fmtPrice, fmtRupee } from '../format';
 import type { Account, ClientOverview, Incident, Leg } from '../types';
 import { ConnectionPill, StatusPill, severityOf } from './StatusPill';
 
-export function Empty({ title, children, ok }: { title: string; children: React.ReactNode; ok?: boolean }) {
+export function Empty({ title, children, ok, icon: Icon = ok ? CheckmarkFilled : Table }: { title: string; children: React.ReactNode; ok?: boolean; icon?: typeof Table }) {
   return (
     <div className="empty">
-      {ok && <CheckmarkFilled size={24} aria-hidden="true" />}
+      <span className={`empty__icon${ok ? ' empty__icon--ok' : ''}`}><Icon size={24} aria-hidden="true" /></span>
       <h3>{title}</h3>
       <p>{children}</p>
     </div>
@@ -37,6 +37,7 @@ export function rowKeys(open: () => void) {
   return {
     tabIndex: 0,
     onKeyDown: (e: React.KeyboardEvent<HTMLTableRowElement>) => {
+      if (e.target !== e.currentTarget) return;
       const row = e.currentTarget;
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
@@ -113,12 +114,13 @@ export function IncidentsTable(props: {
   now: number;
   look: Lookups;
   showClient: boolean;
+  compact?: boolean;
   onAck: (id: number) => void;
   ackBusy: number | null;
   onOpen: OpenLeg;
   selected: string | null;
 }) {
-  const { incidents, now, look, showClient } = props;
+  const { incidents, now, look, showClient, compact } = props;
   const { sorted, th } = useSort(incidents, {
     status: (i) => RANK[severityOf(i.current_status)],
     client: (i) => look.clientName(i.client_id),
@@ -129,16 +131,16 @@ export function IncidentsTable(props: {
   });
   return (
     <div className="tscroll">
-      <table className="dt" aria-label="Incidents">
+      <table className={`dt dt--incidents${compact ? ' dt--incident-summary' : ''}`} aria-label="Incidents">
         <thead>
           <tr>
             {th('status', 'Status')}
-            {showClient && th('client', 'Client')}
-            {th('broker', 'Broker')}
-            {th('symbol', 'Symbol')}
-            <th>What is wrong</th>
-            {th('opened', 'Opened')}
-            {th('dur', 'Unprotected', true)}
+            {!compact && showClient && th('client', 'Client')}
+            {!compact && th('broker', 'Broker')}
+            {th('symbol', 'Instrument')}
+            {!compact && <th>Reason</th>}
+            {!compact && th('opened', 'Opened')}
+            {th('dur', compact ? 'Age' : 'Unprotected', true)}
             <th>Action</th>
           </tr>
         </thead>
@@ -146,6 +148,7 @@ export function IncidentsTable(props: {
           {sorted.map((i) => {
             const open = !i.resolved_at;
             const secs = open ? (now - new Date(i.opened_at).getTime()) / 1000 : i.unprotected_secs;
+            const reason = open ? i.detail : i.resolution && RESOLUTION[i.resolution];
             return (
               <tr
                 key={i.id}
@@ -154,20 +157,25 @@ export function IncidentsTable(props: {
                 {...rowKeys(() => props.onOpen(i.leg_key))}
               >
                 <td>
-                  <StatusPill status={open ? i.current_status : 'PROTECTED'} />
+                  {open ? <StatusPill status={i.current_status} /> : <span className="pill pill--grey">Resolved</span>}
                 </td>
-                {showClient && <td>{look.clientName(i.client_id)}</td>}
-                <td>{look.brokerOf(i.account_id)}</td>
-                <td className="sym">{i.symbol}</td>
-                <td className="wrap">
-                  {open ? (i.detail ?? '-') : i.resolution ? RESOLUTION[i.resolution] : '-'}
-                  {open && i.worst_status !== i.current_status && (
-                    <span className="sub">Worst so far: {i.worst_status.replace(/_/g, ' ').toLowerCase()}</span>
-                  )}
+                {!compact && showClient && <td>{look.clientName(i.client_id)}</td>}
+                {!compact && <td>{look.brokerOf(i.account_id)}</td>}
+                <td>
+                  <span className="sym" title={i.symbol}>{i.symbol}</span>
+                  {compact && <span className="sub">{showClient ? look.clientName(i.client_id) : look.brokerOf(i.account_id)}</span>}
                 </td>
-                <td className="num" style={{ textAlign: 'left' }}>
-                  {fmtClock(i.opened_at)}
-                </td>
+                {!compact && (
+                  <>
+                    <td className="wrap" title={reason ?? undefined}>
+                      {reason ?? '—'}
+                      {open && i.worst_status !== i.current_status && (
+                        <span className="sub">Worst so far: {i.worst_status.replace(/_/g, ' ').toLowerCase()}</span>
+                      )}
+                    </td>
+                    <td className="num" style={{ textAlign: 'left' }}>{fmtClock(i.opened_at)}</td>
+                  </>
+                )}
                 <td className="num">
                   <b style={open ? { color: severityOf(i.current_status) === 'RED' ? 'var(--red)' : 'var(--amber)' } : undefined}>{fmtDuration(secs)}</b>
                 </td>
@@ -296,8 +304,9 @@ export function ClientsTable({ rows, onPick }: { rows: ClientOverview[]; onPick?
             {th('client', 'Client')}
             <th>Coverage</th>
             {th('red', 'No SL', true)}
-            {th('amber', 'Partial', true)}
-            {th('green', 'Safe', true)}
+            {th('amber', 'Needs review', true)}
+            {th('green', 'Protected', true)}
+            <th className="num">Waiting</th>
             {th('down', 'Feeds down', true)}
           </tr>
         </thead>
@@ -306,7 +315,7 @@ export function ClientsTable({ rows, onPick }: { rows: ClientOverview[]; onPick?
             const total = Math.max(1, c.red + c.amber + c.green + c.grey);
             const w = (n: number) => `${(n / total) * 100}%`;
             return (
-              <tr key={c.client_id} className={`${onPick ? 'click' : ''} ${c.red > 0 ? 'sev-red' : c.amber > 0 ? 'sev-amber' : ''}`} onClick={onPick ? () => onPick(c.client_id) : undefined}>
+              <tr key={c.client_id} className={`${onPick ? 'click' : ''} ${c.red > 0 ? 'sev-red' : c.amber > 0 ? 'sev-amber' : ''}`} onClick={onPick ? () => onPick(c.client_id) : undefined} {...(onPick ? rowKeys(() => onPick(c.client_id)) : {})}>
                 <td>
                   <span className="sym">{c.name}</span>
                   <span className="sub">{c.group}</span>
@@ -326,6 +335,7 @@ export function ClientsTable({ rows, onPick }: { rows: ClientOverview[]; onPick?
                   {c.amber}
                 </td>
                 <td className="num">{c.green}</td>
+                <td className="num">{c.grey}</td>
                 <td className="num">
                   {c.accounts_failed} / {c.accounts_total}
                 </td>

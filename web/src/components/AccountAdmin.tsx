@@ -77,7 +77,7 @@ export function AddAccount({ token, clients, onDone, onCancel }: { token: string
       <div className="core">
         <div className="core__head">
           <h2>Add a broker account</h2>
-          <span>Everything you type is stored encrypted on the server and is never shown again</span>
+          <span>Broker credentials are encrypted on the server.</span>
         </div>
         <form className="aform" onSubmit={submit} autoComplete="off">
           <div className="aform__grid">
@@ -141,9 +141,9 @@ export function AddAccount({ token, clients, onDone, onCancel }: { token: string
 
           {broker === 'ZERODHA' && (
             <fieldset className="aform__set">
-              <legend>Sign in</legend>
+              <legend>Zerodha sign-in</legend>
               <p className="aform__note">
-                Choose automatic sign-in, so the desk logs in by itself every morning, or paste a token by hand each day. The first time an account connects to your Kite app, Zerodha asks for one manual Authorize click in a browser; after that it runs by itself.
+                Use automatic sign-in or enter a fresh token each day. First-time automatic setup requires approval in Kite.
               </p>
               <div className="aform__grid">
                 <Field label="Zerodha user id" value={v('user_id')} onChange={set('user_id')} max={40} hint="For automatic sign-in." />

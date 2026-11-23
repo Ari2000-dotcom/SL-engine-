@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
 import { fmtDuration } from '../format';
 import { ClientsTable, Empty, IncidentsTable, LegsTable, type Lookups, type OpenLeg } from '../components/tables';
-import { StatCard, cellsFor } from '../components/cards';
+import { Metric, PageHead } from '../components/cards';
 import type { Page } from '../components/Shell';
-import { Search } from '../icons';
+import { Add, ConnectionSignal, Search, StatProtected, StatUnprotected, Table, WarningAlt } from '../icons';
 import type { ClientOverview, StateView } from '../types';
 
 interface Props {
@@ -17,10 +17,10 @@ interface Props {
   selected: string | null;
 }
 
-type Tone = 'red' | 'down' | 'amber' | 'ok';
-const toneOf = (c: ClientOverview): Tone => (c.red > 0 ? 'red' : c.accounts_failed > 0 ? 'down' : c.amber > 0 ? 'amber' : 'ok');
-const TONE_RANK: Record<Tone, number> = { red: 0, down: 1, amber: 2, ok: 3 };
-const TONE_TEXT: Record<Tone, string> = { red: 'No stop-loss', down: 'Feed down', amber: 'Partial or far stop', ok: 'Protected' };
+type Tone = 'red' | 'down' | 'amber' | 'waiting' | 'ok';
+const toneOf = (c: ClientOverview): Tone => (c.red > 0 ? 'red' : c.accounts_failed > 0 ? 'down' : c.amber > 0 ? 'amber' : c.grey > 0 || c.green === 0 ? 'waiting' : 'ok');
+const TONE_RANK: Record<Tone, number> = { red: 0, down: 1, amber: 2, waiting: 3, ok: 4 };
+const TONE_TEXT: Record<Tone, string> = { red: 'No stop-loss', down: 'Feed down', amber: 'Stop needs review', waiting: 'No verified positions', ok: 'Protected' };
 
 /** Every client as one tile, worst first, so a desk with hundreds of clients reads in a glance. */
 function DeskWall({ rows, onPick }: { rows: ClientOverview[]; onPick: (clientId: string) => void }) {
@@ -35,7 +35,7 @@ function DeskWall({ rows, onPick }: { rows: ClientOverview[]; onPick: (clientId:
         <div className="core__head">
           <h2>All clients at a glance</h2>
           <ul className="legend" aria-label="Legend">
-            {(['red', 'down', 'amber', 'ok'] as Tone[]).map((t) => (
+            {(['red', 'down', 'amber', 'waiting', 'ok'] as Tone[]).map((t) => (
               <li key={t}>
                 <i className={`tile tile--${t}`} aria-hidden="true" />
                 {TONE_TEXT[t]} <b className="num">{n(t)}</b>
@@ -65,281 +65,137 @@ function DeskWall({ rows, onPick }: { rows: ClientOverview[]; onPick: (clientId:
 }
 
 
+const dateFormatter = new Intl.DateTimeFormat('en-IN', {
+  timeZone: 'Asia/Kolkata', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
+});
+
 export function Overview({ view, now, look, onAck, ackBusy, onNav, onOpen, selected }: Props) {
   const admin = view.role === 'ADMIN';
-  const tot = view.totals;
-  const open = view.incidents.filter((i) => !i.resolved_at);
-  const unacked = open.filter((i) => !i.acknowledged_at);
-  const down = view.accounts.filter((a) => a.status === 'FAILED');
-  const needsAction = view.legs.filter((l) => l.severity === 'RED' || l.severity === 'AMBER');
+  const { totals, accounts } = view;
+  const open = view.incidents.filter((incident) => !incident.resolved_at);
+  const unacked = open.filter((incident) => !incident.acknowledged_at).length;
+  const failed = accounts.filter((account) => account.status === 'FAILED').length;
+  const reporting = accounts.filter((account) => account.status === 'OK').length;
+  const longest = open.reduce((max, incident) => Math.max(max, (now - Date.parse(incident.opened_at)) / 1000), 0);
+  const coverage = [
+    { label: 'Protected', count: totals.green, tone: 'green' },
+    { label: 'Unprotected', count: totals.red, tone: 'red' },
+    { label: 'Needs review', count: totals.amber, tone: 'amber' },
+    { label: 'Awaiting verification', count: totals.grey, tone: 'neutral' },
+  ] as const;
 
   const [q, setQ] = useState('');
-  const [problemsOnly, setProblemsOnly] = useState(true);
+  const [problemsOnly, setProblemsOnly] = useState(false);
   const clientRows = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return [...view.overview]
-      .filter((c) => (needle ? `${c.name} ${c.group}`.toLowerCase().includes(needle) : true))
-      .filter((c) => (problemsOnly && !needle ? c.red + c.amber + c.accounts_failed > 0 : true))
-      .sort((a, b) => b.red - a.red || b.amber - a.amber || a.name.localeCompare(b.name));
+      .filter((c) => (!needle || `${c.name} ${c.group}`.toLowerCase().includes(needle)) && (!problemsOnly || c.red + c.amber + c.grey + c.accounts_failed > 0))
+      .sort((a, b) => b.red - a.red || b.amber - a.amber || b.accounts_failed - a.accounts_failed || a.name.localeCompare(b.name));
   }, [view.overview, q, problemsOnly]);
 
   const openBook = (clientId: string) => {
-    const acc = view.accounts.find((a) => a.client_id === clientId);
-    if (acc) location.hash = `book/${encodeURIComponent(acc.account_id)}`;
+    const account = accounts.find((a) => a.client_id === clientId);
+    if (account) location.hash = `book/${encodeURIComponent(account.account_id)}`;
   };
-
-  const hit = view.overview.filter((c) => c.red > 0).length;
-  const part = view.overview.filter((c) => c.amber > 0).length;
-  const clientsN = Math.max(1, view.overview.length);
-  const longest = open.reduce((m, i) => Math.max(m, (now - new Date(i.opened_at).getTime()) / 1000), 0);
-  const worstClients = [...view.overview]
-    .filter((c) => c.red + c.amber > 0)
-    .sort((a, b) => b.red - a.red || b.amber - a.amber)
-    .slice(0, 4);
-  const worstLegs = worstClients.reduce((s, c) => s + c.red + c.amber, 0);
-
-  // Nothing is connected yet. Showing green "all protected" cards here would say the desk is safe when
-  // it is simply not watching anything.
-  if (view.accounts.length === 0) {
-    return (
-      <>
-        <div className="head">
-          <div>
-            <h1>Desk overview</h1>
-            <p>Nothing is connected yet, so no stop-loss is being checked.</p>
-          </div>
-        </div>
-        <section className="tray">
-          <div className="core">
-            <Empty title="No broker accounts yet">
-              {admin ? 'Add the first client and broker account on the Connections page. The desk starts checking stop-losses as soon as it is connected.' : 'No accounts are linked to your login yet. Ask the desk administrator.'}
-            </Empty>
-            {admin && (
-              <div className="aform__actions" style={{ padding: 'var(--s4) var(--gut)' }}>
-                <button type="button" className="btn btn--primary" onClick={() => onNav('accounts')}>
-                  Add an account
-                </button>
-              </div>
-            )}
-          </div>
-        </section>
-      </>
-    );
-  }
 
   return (
     <>
-      <div className="head">
-        <div>
-          <h1>
-            {admin ? 'Desk overview' : 'Your positions'}
-            <span className="count">{admin ? `${view.overview.length} clients` : `${tot.total} legs`}</span>
-          </h1>
-          <p>
-            Every open leg is checked for a valid stop-loss. <b className="t-red">{tot.red} have none</b>, <b className="t-amber">{tot.amber} are partial or too far</b>
-            {down.length > 0 ? (
-              <>
-                , and <b className="t-amber">{down.length} {down.length === 1 ? 'account is' : 'accounts are'} not reporting</b>.
-              </>
+      <PageHead
+        title={admin ? 'Desk overview' : 'Your positions'}
+        eyebrow={dateFormatter.format(now)}
+        actions={
+          <>
+            <button type="button" className="btn" onClick={() => onNav('legs')}><Table size={17} aria-hidden="true" /> View open legs</button>
+            {admin && accounts.length === 0 ? (
+              <button type="button" className="btn btn--primary" onClick={() => onNav('accounts')}><Add size={18} aria-hidden="true" /> Connect a broker</button>
             ) : (
-              <>
-                , and <b className="t-green">{tot.green} are protected</b>.
-              </>
+              <button type="button" className="btn btn--primary" onClick={() => onNav('incidents')}><WarningAlt size={17} aria-hidden="true" /> View incidents</button>
             )}
-          </p>
-        </div>
-        <div className="head__actions">
-          <button type="button" className="btn" onClick={() => onNav('legs')}>
-            All open legs
-          </button>
-          <button type="button" className="btn btn--primary" onClick={() => onNav('incidents')}>
-            Open incidents{open.length > 0 ? ` (${open.length})` : ''}
-          </button>
-        </div>
+          </>
+        }
+      />
+
+      <div className="metrics">
+        <Metric label="Unprotected" value={totals.red} tone="red" icon={StatUnprotected}>
+          {unacked ? `${unacked} awaiting acknowledgement` : 'Missing or invalid stop-loss'}
+        </Metric>
+        <Metric label="Needs review" value={totals.amber} tone="amber" icon={WarningAlt}>
+          Coverage or trigger issues
+        </Metric>
+        <Metric label="Protected" value={totals.green} tone="green" icon={StatProtected}>
+          {totals.total ? `Of ${totals.total} open legs` : 'No open legs to check'}
+        </Metric>
+        <Metric label="Broker feeds" value={reporting} unit={accounts.length ? `/ ${accounts.length}` : undefined} tone="blue" icon={ConnectionSignal}>
+          {accounts.length ? <>{failed} down · {accounts.length - reporting - failed} connecting</> : 'No accounts connected'}
+        </Metric>
       </div>
 
-      <div className="stats4">
-        <StatCard
-          label="Unprotected now"
-          chip={tot.red > 0 ? 'Needs action' : 'Clear'}
-          tone={tot.red > 0 ? 'red' : 'green'}
-          value={tot.red}
-          unit={tot.red === 1 ? 'leg has no stop-loss' : 'legs have no stop-loss'}
-          meta={`${hit} of ${clientsN} clients affected`}
-          filled={cellsFor(hit, clientsN)}
-          note={open.length > 0 ? `Longest without a stop: ${fmtDuration(longest)}. ${unacked.length} not yet acknowledged.` : 'Every open leg has a valid stop-loss.'}
-          foot={`${open.length} open incidents`}
-          action={{ label: 'Open incidents', run: () => onNav('incidents') }}
-        />
-        <StatCard
-          label="Partial or too far"
-          chip={tot.amber > 0 ? 'Needs a look' : 'Clear'}
-          tone={tot.amber > 0 ? 'amber' : 'green'}
-          value={tot.amber}
-          unit={tot.amber === 1 ? 'leg is part-covered or far' : 'legs are part-covered or far'}
-          meta={`${part} of ${clientsN} clients affected`}
-          filled={cellsFor(part, clientsN)}
-          note="The stop covers only part of the position, or sits further away than the loss limit allows."
-          foot="Set in Risk settings"
-          action={{ label: 'See legs', run: () => onNav('legs') }}
-        />
-        <StatCard
-          label="Broker feeds"
-          chip={down.length > 0 ? 'Check logins' : 'All connected'}
-          tone={down.length > 0 ? 'amber' : 'green'}
-          value={down.length}
-          unit={`of ${view.accounts.length} accounts not reporting`}
-          meta={`${view.accounts.length - down.length} reporting normally`}
-          filled={cellsFor(view.accounts.length - down.length, view.accounts.length)}
-          barTone="green"
-          note="Stops on an account that is not reporting cannot be verified, so its legs stay grey."
-          foot="Login or data read failing"
-          action={admin ? { label: 'Connections', run: () => onNav('accounts') } : undefined}
-        />
-        <StatCard
-          label="Protected"
-          chip="On track"
-          tone="green"
-          value={tot.green}
-          unit={`of ${tot.total} open legs`}
-          meta={`${tot.total ? Math.round((tot.green / tot.total) * 100) : 0}% of all legs`}
-          filled={cellsFor(tot.green, tot.total)}
-          note="A live stop-loss covers the full position, on the right side, within the loss limit."
-          foot="Checked on every update"
-          action={{ label: 'All open legs', run: () => onNav('legs') }}
-        />
-      </div>
-
-      <div className={`split ${admin ? 'split--wide' : ''}`}>
-        <section className="tray">
-          <div className="core">
-            <div className="core__head">
-              <h2>
-                Needs action now <span className="count">{open.length}</span>
-              </h2>
-              <ul className="legend">
-                <li>
-                  <i className="sw sw--red" />
-                  No stop-loss
-                </li>
-                <li>
-                  <i className="sw sw--amber" />
-                  Partial or far
-                </li>
-              </ul>
-            </div>
-            {open.length === 0 ? (
-              <Empty ok title="Nothing is unprotected">
-                Every open leg has a valid stop-loss. New problems appear here as soon as the next order update or poll arrives.
-              </Empty>
-            ) : (
-              <IncidentsTable incidents={open} now={now} look={look} showClient={admin} onAck={onAck} ackBusy={ackBusy} onOpen={onOpen} selected={selected} />
-            )}
-            <div className="core__foot core__foot--split">
-              <span>
-                {tot.red} no stop-loss · {tot.amber} partial or far
-              </span>
-              <span>Oldest {open.length ? fmtDuration(longest) : '-'}</span>
-            </div>
-          </div>
+      <div className="overview-grid">
+        <section className="core overview-incidents">
+          <header className="overview-panel-head">
+            <div><h2>Open incidents <span className="count">{open.length}</span></h2><p>Stop-loss exceptions that need attention</p></div>
+            <button type="button" className="btn btn--quiet" onClick={() => onNav('incidents')}>View all</button>
+          </header>
+          {open.length > 0 ? (
+            <IncidentsTable compact incidents={open} now={now} look={look} showClient={admin} onAck={onAck} ackBusy={ackBusy} onOpen={onOpen} selected={selected} />
+          ) : (
+            <Empty icon={WarningAlt} title="No open incidents">
+              {accounts.length === 0
+                ? 'Connect a broker account to start monitoring for missing or invalid stop-loss orders.'
+                : reporting === 0
+                  ? 'Waiting for a broker feed to report. Protection will be checked when position data arrives.'
+                  : 'New stop-loss exceptions will appear here as broker data updates.'}
+            </Empty>
+          )}
+          <footer className="overview-panel-foot"><span>Awaiting acknowledgement <b>{unacked}</b></span><span>Oldest incident <b>{open.length ? fmtDuration(longest) : '—'}</b></span></footer>
         </section>
 
-        {admin ? (
-          <section className="insight">
-            <header className="insight__head">
-              <span>Where it concentrates</span>
-              <span className="muted">
-                {worstClients.length} clients · {worstLegs} legs
-              </span>
-            </header>
-            <div className="insight__card">
-              <h3>{worstClients.length ? `${worstClients[0].name} has the most legs to fix` : 'No client needs attention'}</h3>
-              <p className="insight__lede">
-                {worstClients.length
-                  ? `The four clients below hold ${worstLegs} of the ${tot.red + tot.amber} legs that need a stop-loss action.`
-                  : 'New problems appear here as soon as the next poll arrives.'}
-              </p>
-              <ol className="steps">
-                {worstClients.map((c, i) => (
-                  <li key={c.client_id}>
-                    <span className="steps__n">{i + 1}</span>
-                    <button type="button" className="steps__main" onClick={() => openBook(c.client_id)}>
-                      <b>{c.name}</b>
-                      <small>{c.group}</small>
-                    </button>
-                    {c.red > 0 && <span className="tag tag--red">{c.red} no stop</span>}
-                    {c.amber > 0 && <span className="tag tag--amber">{c.amber} partial</span>}
-                  </li>
-                ))}
-              </ol>
-              <div className="insight__after">
-                <div>
-                  <small>No stop-loss</small>
-                  <b className="num">
-                    {tot.red} <i>→</i> {Math.max(0, tot.red - worstClients.reduce((s, c) => s + c.red, 0))}
-                  </b>
-                  <small>if these four are fixed</small>
-                </div>
-                <div>
-                  <small>Partial or far</small>
-                  <b className="num">
-                    {tot.amber} <i>→</i> {Math.max(0, tot.amber - worstClients.reduce((s, c) => s + c.amber, 0))}
-                  </b>
-                  <small>if these four are fixed</small>
-                </div>
-              </div>
-              <button type="button" className="btn btn--primary btn--block" onClick={() => onNav('incidents')}>
-                Work through the incidents
-              </button>
-              <p className="insight__foot">Acknowledging an incident silences the alert. It closes when the stop is placed.</p>
+        <section className="core coverage">
+          <header className="overview-panel-head"><div><h2>Stop-loss coverage</h2><p>Breakdown of all open legs</p></div></header>
+          <div className="coverage__body">
+            <p className="coverage__headline"><strong className="num">{totals.total ? `${Math.round(totals.green / totals.total * 100)}%` : '—'}</strong><span>of legs protected</span></p>
+            <div className="coverage__bar" aria-hidden="true">
+              {coverage.filter((item) => item.count > 0).map((item) => <span key={item.tone} className={`coverage__segment tone-${item.tone}`} style={{ flexGrow: item.count }} />)}
             </div>
-          </section>
-        ) : (
-          needsAction.length > 0 && (
-            <section className="tray">
-              <div className="core">
-                <div className="core__head">
-                  <h2>Legs to fix</h2>
-                  <span>{needsAction.length} legs</span>
+            <dl className="coverage__legend">
+              {coverage.map((item) => (
+                <div key={item.tone}>
+                  <dt><i className={`tone-${item.tone}`} aria-hidden="true" />{item.label}</dt>
+                  <dd className="num">{item.count}</dd>
                 </div>
-                <LegsTable legs={needsAction} look={look} showClient={false} onOpen={onOpen} selected={selected} />
-              </div>
-            </section>
-          )
-        )}
+              ))}
+            </dl>
+          </div>
+        </section>
       </div>
 
       {admin && view.overview.length > 8 && <DeskWall rows={view.overview} onPick={openBook} />}
-
       {admin && (
-        <section className="tray">
-          <div className="core">
-            <div className="core__head">
-              <h2>
-                Clients <span className="count">{view.overview.length}</span>
-              </h2>
-              <span>
-                {clientRows.length} shown
-              </span>
-            </div>
-            {view.overview.length > 8 && (
-              <div className="core__tools">
-                <div className="search search--sm">
-                  <Search size={16} aria-hidden="true" />
-                  <input aria-label="Find a client" placeholder="Find a client or desk" value={q} onChange={(e) => setQ(e.target.value)} />
-                </div>
-                <label className="check">
-                  <input type="checkbox" checked={problemsOnly} onChange={(e) => setProblemsOnly(e.target.checked)} />
-                  <span>Needs attention only</span>
-                </label>
+        <section className="core">
+          <header className="overview-panel-head">
+            <div><h2>Clients <span className="count">{view.overview.length}</span></h2><p>Protection and feed status by client</p></div>
+            {accounts.length > 0 && <button type="button" className="btn btn--quiet" onClick={() => onNav('book')}>Account books</button>}
+          </header>
+          {view.overview.length > 0 && (
+            <div className="core__tools">
+              <div className="search search--sm">
+                <Search size={16} aria-hidden="true" />
+                <input aria-label="Find a client" placeholder="Find a client or desk" value={q} onChange={(e) => setQ(e.target.value)} />
               </div>
-            )}
-            {clientRows.length === 0 ? (
-              <Empty title="No clients to show">{q ? 'No client or desk matches that search.' : 'No client needs attention right now.'}</Empty>
-            ) : (
-              <ClientsTable rows={clientRows} onPick={openBook} />
-            )}
-          </div>
+              <label className="check"><input type="checkbox" checked={problemsOnly} onChange={(e) => setProblemsOnly(e.target.checked)} /><span>Needs attention only</span></label>
+            </div>
+          )}
+          {clientRows.length ? <ClientsTable rows={clientRows} onPick={openBook} /> : (
+            <Empty icon={ConnectionSignal} title={view.overview.length ? 'No clients match' : 'No broker accounts yet'}>
+              {view.overview.length ? 'Change the search or attention filter to see more clients.' : 'Clients appear here once a broker account is added.'}
+            </Empty>
+          )}
+        </section>
+      )}
+      {!admin && view.legs.some((leg) => leg.severity === 'RED' || leg.severity === 'AMBER') && (
+        <section className="core">
+          <div className="core__head"><h2>Legs that need attention</h2></div>
+          <LegsTable legs={view.legs.filter((leg) => leg.severity === 'RED' || leg.severity === 'AMBER')} look={look} showClient={false} onOpen={onOpen} selected={selected} />
         </section>
       )}
     </>

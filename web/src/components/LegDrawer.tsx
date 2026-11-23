@@ -2,7 +2,7 @@ import { Close } from '../icons';
 import { useEffect } from 'react';
 import { STATUS_LABEL, fmtAgo, fmtClock, fmtDuration, fmtInt, fmtPct, fmtPrice, fmtRupee } from '../format';
 import type { Incident, Leg } from '../types';
-import { StatusPill, severityOf } from './StatusPill';
+import { StatusPill, coverageTone, severityOf } from './StatusPill';
 import type { Lookups } from './tables';
 
 const TONE = { RED: 'var(--red)', AMBER: 'var(--amber)', GREEN: 'var(--green)', GREY: 'var(--grey)' } as const;
@@ -102,7 +102,7 @@ export function LegDrawer({ leg, incident, look, now, onClose, onAck, ackBusy }:
 
           <div>
             <div className="bar" style={{ height: '0.625rem' }} role="img" aria-label={`Stop-loss covers ${Math.round(cover)} percent`}>
-              <i className={severityOf(status) === 'RED' ? 'r' : severityOf(status) === 'AMBER' ? 'a' : 'g'} style={{ width: `${cover}%` }} />
+              <i className={coverageTone[severityOf(status)]} style={{ width: `${cover}%` }} />
             </div>
           </div>
 

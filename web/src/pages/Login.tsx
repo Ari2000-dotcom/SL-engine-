@@ -1,11 +1,13 @@
-import { Button, InlineNotification, PasswordInput, TextInput } from '@carbon/react';
 import { useState } from 'react';
 import { login } from '../api';
+import { DeskBrand } from '../components/Shell';
+import { View, ViewOff } from '../icons';
 import type { Session } from '../types';
 
 export function Login({ onSession }: { onSession: (s: Session) => void }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -23,49 +25,33 @@ export function Login({ onSession }: { onSession: (s: Session) => void }) {
   };
 
   return (
-    <div className="login">
-      <section className="login__brand">
-        <div>
-          <h1>SL Guardian</h1>
-          <p>Watches every client leg across Kotak Neo, Zerodha Kite and Angel One, and tells the desk the moment one is missing its stop-loss.</p>
-        </div>
-        <ul>
-          <li>Reads order books, trade books and positions. It never places, changes or cancels an order.</li>
-          <li>Checks for a missing, partial, rejected, cancelled, wrong-side or too-distant stop-loss on every leg.</li>
-          <li>Refreshes on every broker order update and re-reads all books every 5 seconds.</li>
-        </ul>
-      </section>
-      <section className="login__form">
+    <main className="login">
+      <section className="login__panel" aria-labelledby="login-title">
+        <DeskBrand />
         <form onSubmit={submit}>
           <div>
-            <h2>Sign in</h2>
-            <p className="login__hint">Use the username and password the desk administrator gave you.</p>
+            <h1 id="login-title">Sign in to RMS Desk</h1>
+            <p>Use your desk credentials to access the monitor.</p>
           </div>
-          {error && (
-            <InlineNotification kind="error" title="Sign-in failed" subtitle={error} hideCloseButton lowContrast />
-          )}
-          <TextInput
-            id="username"
-            size="md"
-            labelText="Username"
-            autoComplete="username"
-            autoFocus
-            value={username}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
-          />
-          <PasswordInput
-            id="password"
-            size="md"
-            labelText="Password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
-          />
-          <Button type="submit" size="md" className="login__submit" disabled={busy || !username || !password}>
-            {busy ? 'Signing in' : 'Sign in'}
-          </Button>
+          {error && <div className="banner" role="alert">{error}</div>}
+          <label className="fld">
+            <span>Username</span>
+            <input name="username" autoComplete="username" autoFocus value={username} onChange={(e) => setUsername(e.target.value)} />
+          </label>
+          <div className="fld">
+            <label htmlFor="password">Password</label>
+            <div className="password-field">
+              <input id="password" name="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+              <button type="button" onClick={() => setShowPassword((show) => !show)} aria-label={showPassword ? 'Hide password' : 'Show password'}>
+                {showPassword ? <ViewOff size={16} aria-hidden="true" /> : <View size={16} aria-hidden="true" />}
+              </button>
+            </div>
+          </div>
+          <button type="submit" className="btn btn--primary login__submit" disabled={busy || !username.trim() || !password}>
+            {busy ? 'Signing in…' : 'Sign in'}
+          </button>
         </form>
       </section>
-    </div>
+    </main>
   );
 }

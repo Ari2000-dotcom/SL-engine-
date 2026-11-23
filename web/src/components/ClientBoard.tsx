@@ -59,7 +59,7 @@ function PositionsMini({ legs, onOpen, selected }: { legs: Leg[]; onOpen: OpenLe
             >
               <td className="time">{l.opened_ts ? fmtClock(l.opened_ts) : '-'}</td>
               <td className="ins">
-                <span className="sym">{l.symbol}</span>
+                <span className="sym" title={l.symbol}>{l.symbol}</span>
                 <span className="sub">
                   {l.exchange} · {l.product.toLowerCase()}
                 </span>
@@ -83,9 +83,9 @@ function PositionsMini({ legs, onOpen, selected }: { legs: Leg[]; onOpen: OpenLe
   );
 }
 
-function OrdersMini({ rows }: { rows: Order[] }) {
+function OrdersMini({ rows, label }: { rows: Order[]; label: string }) {
   return (
-    <table className="dt dt--tight dt--board" aria-label="Open orders">
+    <table className="dt dt--tight dt--board" aria-label={label}>
       <thead>
         <tr>
           <th>Time</th>
@@ -100,7 +100,7 @@ function OrdersMini({ rows }: { rows: Order[] }) {
           <tr key={o.broker_order_id} className={o.state === 'REJECTED' ? 'sev-red' : ''}>
             <td className="time">{fmtClock(o.order_ts)}</td>
             <td className="ins">
-              <span className="sym">{o.symbol}</span>
+              <span className="sym" title={o.symbol}>{o.symbol}</span>
               <span className="sub">
                 {KIND_LABEL[o.kind] ?? o.kind} · {o.price ? fmtPrice(o.price) : 'market'}
                 {o.trigger_price != null && ` · trigger ${fmtPrice(o.trigger_price)}`}
@@ -114,6 +114,7 @@ function OrdersMini({ rows }: { rows: Order[] }) {
             </td>
             <td>
               <StateChip state={o.state} />
+              {o.reject_reason && <span className="sub order-reason" title={o.reject_reason}>{o.reject_reason}</span>}
             </td>
           </tr>
         ))}
@@ -122,20 +123,26 @@ function OrdersMini({ rows }: { rows: Order[] }) {
   );
 }
 
-/** One broker account inside a client board: open positions on the left, open orders on the right. */
+const ORDER_FILTERS = { open: 'Open', prev: 'Previous', all: 'All' } as const;
+type OrderFilter = keyof typeof ORDER_FILTERS;
+
 function AccountSection({ item, q, token, onAuthLost, onOpen, selected, onPick }: Omit<Props, 'client' | 'items' | 'index'> & { item: BoardAccount; q: string }) {
   const a = item.account;
   const { data, error } = usePolled((signal) => fetchBook(token, a.account_id, signal), [token, a.account_id], 5000, onAuthLost);
   const book = data && data.account_id === a.account_id ? data : null;
-  const [ot, setOt] = useState<'open' | 'prev' | 'all'>('open');
+  const [pickedFilter, setPickedFilter] = useState<OrderFilter | null>(null);
   const byTime = (x: string | null, y: string | null) => (y ?? '').localeCompare(x ?? '');
   const allLegs = [...(book?.legs ?? [])].sort((x, y) => byTime(x.opened_ts, y.opened_ts));
   const legs = allLegs.filter((l) => matches(q, legText(l)));
-  const allOrders = [...(book?.orders ?? [])].filter((o) => matches(q, orderText(o))).sort((x, y) => byTime(x.order_ts, y.order_ts));
+  const orders = book?.orders ?? [];
+  const allOrders = orders.filter((o) => matches(q, orderText(o))).sort((x, y) => byTime(x.order_ts, y.order_ts));
   const open = allOrders.filter((o) => OPEN_STATES.has(o.state));
   const prev = allOrders.filter((o) => !OPEN_STATES.has(o.state));
-  const shownOrders = ot === 'open' ? open : ot === 'prev' ? prev : allOrders;
+  const groups = { open, prev, all: allOrders };
+  const filter = pickedFilter ?? (open.length === 0 && prev.length > 0 ? 'prev' : 'open');
+  const shownOrders = groups[filter];
   const bad = legs.filter((l) => l.severity === 'RED' || l.severity === 'AMBER').length;
+  const waiting = legs.filter((l) => l.severity === 'GREY').length;
   const pnl = legs.reduce((s, l) => s + (legPnl(l) ?? 0), 0);
   const ring = item.red ? 'red' : a.status === 'FAILED' ? 'red' : item.amber ? 'amber' : 'ok';
 
@@ -151,58 +158,59 @@ function AccountSection({ item, q, token, onAuthLost, onOpen, selected, onPick }
         </button>
         <ConnectionPill status={a.status} />
         <span className="acct__figs">
+          {a.last_ok && <span title="Last successful broker read">Read {fmtClock(a.last_ok)} IST</span>}
           {book && (
             <>
               <span>
                 {legs.length} {legs.length === 1 ? 'position' : 'positions'}
               </span>
-              {bad > 0 ? <b className="t-red">{bad} without full stop</b> : legs.length > 0 ? <b className="t-green">all protected</b> : null}
+              {bad > 0 && <b className="t-red">{bad} need attention</b>}
+              {waiting > 0 && <span>{waiting} awaiting verification</span>}
+              {a.status === 'OK' && legs.length > 0 && bad === 0 && waiting === 0 && <b className="t-green">all protected</b>}
               {legs.length > 0 && <b className={`num ${pnl >= 0 ? 't-green' : 't-red'}`}>{fmtSigned(pnl)}</b>}
             </>
           )}
         </span>
       </header>
-      <div className="acct__cols">
+      {a.status !== 'OK' && book && (
+        <p className="acct__notice">{a.last_ok ? 'Broker data is stale. Showing the last successful read.' : 'Waiting for the first successful broker read.'}</p>
+      )}
+      {a.status === 'OK' && book && error && <p className="acct__notice">Could not refresh this account book. Showing the last loaded data.</p>}
+      <div className={`acct__cols${book && (legs.length === 0 || orders.length === 0) ? ' acct__cols--stacked' : ''}`}>
         <div className="acct__col">
           <div className="acct__label">
             Open positions <i>{book ? legs.length : '–'}</i>
           </div>
-          <div className="acct__scroll">
-            {!book ? (
-              <p className="acct__none">{error ?? 'Loading'}</p>
-            ) : legs.length === 0 ? (
-              <p className="acct__none">{q.trim() && allLegs.length > 0 ? 'No position matches.' : 'Flat. No open positions.'}</p>
-            ) : (
+          {book && legs.length > 0 ? (
+            <div className="acct__scroll" role="region" aria-label={`Open positions for ${a.account_id}`} tabIndex={0}>
               <PositionsMini legs={legs} onOpen={onOpen} selected={selected} />
-            )}
-          </div>
+            </div>
+          ) : !book ? (
+            <p className="acct__none">{error ?? 'Loading'}</p>
+          ) : (
+            <p className="acct__none">{allLegs.length > 0 ? 'No position matches.' : a.status === 'OK' ? 'No open positions.' : 'Open positions could not be verified.'}</p>
+          )}
         </div>
         <div className="acct__col">
           <div className="acct__label">
             <span>Orders</span>
             <div className="acct__tabs" role="group" aria-label="Which orders">
-              {(
-                [
-                  ['open', 'Open', open.length],
-                  ['prev', 'Previous', prev.length],
-                  ['all', 'All', allOrders.length],
-                ] as const
-              ).map(([id, label, n]) => (
-                <button key={id} type="button" aria-pressed={ot === id} onClick={() => setOt(id)}>
-                  {label} <i>{book ? n : '–'}</i>
+              {(['open', 'prev', 'all'] as const).map((id) => (
+                <button key={id} type="button" aria-pressed={filter === id} onClick={() => setPickedFilter(id)}>
+                  {ORDER_FILTERS[id]} <i>{book ? groups[id].length : '–'}</i>
                 </button>
               ))}
             </div>
           </div>
-          <div className="acct__scroll">
-            {!book ? (
-              <p className="acct__none">{error ?? 'Loading'}</p>
-            ) : shownOrders.length === 0 ? (
-              <p className="acct__none">{q.trim() ? 'No order matches.' : ot === 'open' ? 'No open orders.' : ot === 'prev' ? 'No earlier orders today.' : 'No orders today.'}</p>
-            ) : (
-              <OrdersMini rows={shownOrders} />
-            )}
-          </div>
+          {!book ? (
+            <p className="acct__none">{error ?? 'Loading'}</p>
+          ) : shownOrders.length === 0 ? (
+            <p className="acct__none">{q.trim() ? 'No order matches.' : filter === 'open' ? 'No open orders.' : filter === 'prev' ? 'No earlier orders today.' : 'No orders today.'}</p>
+          ) : (
+            <div className="acct__scroll" role="region" aria-label={`${ORDER_FILTERS[filter]} orders for ${a.account_id}`} tabIndex={0}>
+              <OrdersMini rows={shownOrders} label={`${ORDER_FILTERS[filter]} orders`} />
+            </div>
+          )}
         </div>
       </div>
     </section>
@@ -212,8 +220,10 @@ function AccountSection({ item, q, token, onAuthLost, onOpen, selected, onPick }
 /** One large container per client. Every broker account the client has sits inside it. */
 export function ClientBoard({ client, items, token, onAuthLost, onOpen, selected, onPick, index }: Props) {
   const [q, setQ] = useState('');
+  const critical = items.reduce((n, i) => n + i.red, 0);
   const problems = items.reduce((n, i) => n + i.red + i.amber, 0);
   const down = items.filter((i) => i.account.status === 'FAILED').length;
+  const connecting = items.filter((i) => i.account.status === 'CONNECTING').length;
   return (
     <article className="cboard tray--rise" style={{ ['--i' as string]: index }}>
       <header className="cboard__head">
@@ -239,7 +249,10 @@ export function ClientBoard({ client, items, token, onAuthLost, onOpen, selected
           />
         </div>
         {down > 0 && <span className="badge badge--down">{down} down</span>}
-        {problems > 0 ? <span className="badge badge--red">{problems} to fix</span> : <span className="badge badge--ok">Protected</span>}
+        {problems > 0 && <span className={`badge ${critical ? 'badge--red' : 'badge--amber'}`}>{problems} need review</span>}
+        {client.grey > 0 && <span className="badge">{client.grey} unverified</span>}
+        {connecting > 0 && <span className="badge">{connecting} connecting</span>}
+        {problems === 0 && client.grey === 0 && down === 0 && connecting === 0 && client.green > 0 && <span className="badge badge--ok">Protected</span>}
       </header>
       <div className="cboard__body">
         {items.map((it) => (

@@ -1,4 +1,3 @@
-import { Button, InlineNotification, Select, SelectItem, TextInput } from '@carbon/react';
 import { Add, TrashCan } from '../icons';
 import { useState } from 'react';
 import { saveRisk } from '../api';
@@ -65,89 +64,77 @@ export function Risk({ view, token }: { view: StateView; token: string }) {
 
   return (
     <>
-      <PageHead title="Risk settings" count={`${rules.length} ${rules.length === 1 ? 'rule' : 'rules'}`}>
-        Decides when a stop-loss counts as <b className="t-amber">too far</b> from the entry price. A more specific rule wins: client and segment, then client, then segment, then the default.
-      </PageHead>
-
-      {msg && <InlineNotification kind={msg.kind} title={msg.kind === 'error' ? 'Check the rules' : 'Done'} subtitle={msg.text} lowContrast onCloseButtonClick={() => setMsg(null)} />}
-
-      <div className="tray"><div className="core">
+      <PageHead title="Risk settings" count={`${rules.length} ${rules.length === 1 ? 'rule' : 'rules'}`} />
+      <section className="core risk-rules" aria-label="Loss limits">
         <div className="core__head">
-          <h2>
-            Loss limits <span className="count">{rules.length}</span>
-          </h2>
-          <span>Grace is how long a new position may go without a stop before it is flagged</span>
+          <h2>Loss limits</h2>
+          <span>The most specific client and segment rule takes priority.</span>
         </div>
-        <div className="core__body">
-        {rules.map((r, i) => (
-          <div key={i} className="risk-grid">
-            <Select id={`rc-${i}`} labelText="Client" value={r.client_id ?? ''} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => patch(i, (x) => ({ ...x, client_id: e.target.value || null }))}>
-              <SelectItem value="" text="All clients" />
-              {view.overview.map((c) => (
-                <SelectItem key={c.client_id} value={c.client_id} text={c.name} />
-              ))}
-            </Select>
-            <Select id={`rs-${i}`} labelText="Segment" value={r.segment ?? ''} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => patch(i, (x) => ({ ...x, segment: (e.target.value || null) as Segment | null }))}>
-              <SelectItem value="" text="All segments" />
-              {SEGMENTS.map((s) => (
-                <SelectItem key={s} value={s} text={s} />
-              ))}
-            </Select>
-            <Select id={`rm-${i}`} labelText="Check loss by" value={r.setting.mode} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => patch(i, (x) => ({ ...x, setting: { ...x.setting, mode: e.target.value as RiskSetting['mode'] } }))}>
-              <SelectItem value="PCT" text="Percent of entry price" />
-              <SelectItem value="RUPEE" text="Rupees per leg" />
-            </Select>
-            <TextInput
-              id={`rp-${i}`}
-              type="number"
-              labelText="Maximum loss (%)"
-              helperText="Used in percent mode"
-              disabled={r.setting.mode !== 'PCT'}
-              value={Number.isNaN(r.setting.max_pct) ? '' : r.setting.max_pct}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => patch(i, (x) => ({ ...x, setting: { ...x.setting, max_pct: num(e.target.value) } }))}
-            />
-            <TextInput
-              id={`rr-${i}`}
-              type="number"
-              labelText="Maximum loss (rupees)"
-              helperText="Used in rupee mode"
-              disabled={r.setting.mode !== 'RUPEE'}
-              value={Number.isNaN(r.setting.max_rupee) ? '' : r.setting.max_rupee}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => patch(i, (x) => ({ ...x, setting: { ...x.setting, max_rupee: num(e.target.value) } }))}
-            />
-            <TextInput
-              id={`rg-${i}`}
-              type="number"
-              labelText="Grace (seconds)"
-              helperText="Before a new position is flagged"
-              value={Number.isNaN(r.setting.grace_sec) ? '' : r.setting.grace_sec}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => patch(i, (x) => ({ ...x, setting: { ...x.setting, grace_sec: num(e.target.value) } }))}
-            />
-            <div>
-              <Button
-                kind="ghost"
-                size="md"
-                renderIcon={TrashCan}
-                disabled={r.client_id === null && r.segment === null}
-                onClick={() => {
-                  setMsg(null);
-                  setRules((rs) => rs.filter((_, j) => j !== i));
-                }}
-              >
-                Remove
-              </Button>
-            </div>
+        <form className="risk-form" onSubmit={(e) => { e.preventDefault(); void save(); }} noValidate>
+          {rules.map((r, i) => {
+            const defaultRule = r.client_id === null && r.segment === null;
+            const percent = r.setting.mode === 'PCT';
+            const limit = percent ? 'max_pct' : 'max_rupee';
+            return (
+              <fieldset key={i} className="risk-rule">
+                <legend>{defaultRule ? 'Default rule' : `Rule ${i + 1}`}</legend>
+                <div className="risk-grid">
+                  <label className="fld">
+                    <span>Client</span>
+                    <select value={r.client_id ?? ''} onChange={(e) => patch(i, (x) => ({ ...x, client_id: e.target.value || null }))}>
+                      <option value="">All clients</option>
+                      {view.overview.map((c) => <option key={c.client_id} value={c.client_id}>{c.name}</option>)}
+                    </select>
+                  </label>
+                  <label className="fld">
+                    <span>Segment</span>
+                    <select value={r.segment ?? ''} onChange={(e) => patch(i, (x) => ({ ...x, segment: (e.target.value || null) as Segment | null }))}>
+                      <option value="">All segments</option>
+                      {SEGMENTS.map((segment) => <option key={segment} value={segment}>{segment}</option>)}
+                    </select>
+                  </label>
+                  <label className="fld">
+                    <span>Check loss by</span>
+                    <select value={r.setting.mode} onChange={(e) => patch(i, (x) => ({ ...x, setting: { ...x.setting, mode: e.target.value as RiskSetting['mode'] } }))}>
+                      <option value="PCT">% of entry price</option>
+                      <option value="RUPEE">Rupees per leg</option>
+                    </select>
+                  </label>
+                  <label className="fld">
+                    <span>{percent ? 'Maximum loss (%)' : 'Maximum loss (₹)'}</span>
+                    <input type="number" step="any" value={Number.isNaN(r.setting[limit]) ? '' : r.setting[limit]} onChange={(e) => patch(i, (x) => ({ ...x, setting: { ...x.setting, [limit]: num(e.target.value) } }))} />
+                  </label>
+                  <label className="fld">
+                    <span>Grace (seconds)</span>
+                    <input type="number" min="0" max="3600" value={Number.isNaN(r.setting.grace_sec) ? '' : r.setting.grace_sec} onChange={(e) => patch(i, (x) => ({ ...x, setting: { ...x.setting, grace_sec: num(e.target.value) } }))} />
+                  </label>
+                  {!defaultRule && (
+                    <button type="button" className="btn risk-grid__remove" onClick={() => {
+                      setMsg(null);
+                      setRules((rs) => rs.filter((_, j) => j !== i));
+                    }}>
+                      <TrashCan size={16} aria-hidden="true" /> Remove
+                    </button>
+                  )}
+                </div>
+              </fieldset>
+            );
+          })}
+          <p className="risk-form__hint">Grace is the time allowed for a new position to receive a stop-loss.</p>
+          {msg && <div className={`banner${msg.kind === 'success' ? ' banner--success' : ''}`} role={msg.kind === 'error' ? 'alert' : 'status'}>{msg.text}</div>}
+          <div className="form-actions">
+            <button type="button" className="btn" onClick={() => {
+              setMsg(null);
+              setRules((rs) => [...rs, { client_id: null, segment: 'OPT', setting: { ...DEFAULT } }]);
+            }}>
+              <Add size={16} aria-hidden="true" /> Add rule
+            </button>
+            <button type="submit" className="btn btn--primary" disabled={busy}>
+              {busy ? 'Saving…' : 'Save changes'}
+            </button>
           </div>
-        ))}
-        <div className="form-actions" style={{ marginTop: 0 }}>
-          <Button kind="tertiary" renderIcon={Add} onClick={() => setRules((rs) => [...rs, { client_id: null, segment: 'OPT', setting: { ...DEFAULT } }])}>
-            Add rule
-          </Button>
-          <Button onClick={save} disabled={busy}>
-            {busy ? 'Saving' : 'Save changes'}
-          </Button>
-        </div>
-      </div></div></div>
+        </form>
+      </section>
     </>
   );
 }

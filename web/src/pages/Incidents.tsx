@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { PageHead } from '../components/cards';
 import { Empty, IncidentsTable, type Lookups, type OpenLeg } from '../components/tables';
+import { Add, ConnectionSignal, Notification, StatProtected } from '../icons';
 import type { StateView } from '../types';
 
 interface Props {
@@ -13,66 +14,74 @@ interface Props {
   selected: string | null;
 }
 
-type Tab = 'open' | 'unseen' | 'closed';
+const TAB_ORDER = ['open', 'unseen', 'closed'] as const;
+type Tab = typeof TAB_ORDER[number];
+
+const FILTERS = {
+  open: {
+    label: 'Open',
+    icon: Notification,
+    empty: 'No open incidents',
+    detail: 'Stop-loss exceptions appear here as broker feeds update.',
+  },
+  unseen: {
+    label: 'To acknowledge',
+    icon: Notification,
+    empty: 'No incidents awaiting acknowledgement',
+    detail: 'Acknowledged incidents stay open until the stop-loss is placed or the position closes.',
+  },
+  closed: {
+    label: 'Closed today',
+    icon: StatProtected,
+    empty: 'No incidents closed today',
+    detail: 'Resolved incidents from this trading day appear here.',
+  },
+};
 
 export function Incidents({ view, now, look, onAck, ackBusy, onOpen, selected }: Props) {
   const [tab, setTab] = useState<Tab>('open');
   const open = view.incidents.filter((i) => !i.resolved_at);
   const unseen = open.filter((i) => !i.acknowledged_at);
   const closed = view.incidents.filter((i) => i.resolved_at);
-  const rows = tab === 'open' ? open : tab === 'unseen' ? unseen : closed;
-  const tabs: [Tab, string, number][] = [
-    ['open', 'Open', open.length],
-    ['unseen', 'Not acknowledged', unseen.length],
-    ['closed', 'Closed', closed.length],
-  ];
+  const groups = { open, unseen, closed };
+  const rows = groups[tab];
+  const active = FILTERS[tab];
+  const needsConnection = tab === 'open' && rows.length === 0 && view.accounts.length === 0;
 
   return (
     <>
-      <PageHead
-        title="Incidents today"
-        count={`${open.length} open`}
-        actions={
-          <div className="seg" role="group" aria-label="Incident filter">
-            {tabs.map(([id, label, n]) => (
-              <button key={id} type="button" aria-pressed={tab === id} onClick={() => setTab(id)}>
-                {label}
-                <i>{n}</i>
+      <PageHead title="Incidents" />
+      <section className="core incident-results" aria-label="Incident queue">
+        <header className="incident-results__toolbar">
+          <div className="incident-filters" role="group" aria-label="Filter incidents">
+            {TAB_ORDER.map((id) => (
+              <button key={id} type="button" className="incident-filter" aria-pressed={tab === id} aria-controls="incident-results" onClick={() => setTab(id)}>
+                {FILTERS[id].label}<span className="num">{groups[id].length}</span>
               </button>
             ))}
           </div>
-        }
-      >
-        <b className="t-red">{unseen.length} not acknowledged</b>, {open.length - unseen.length} acknowledged, <b className="t-green">{closed.length} closed today</b>. An incident closes when the stop-loss is placed or the position is closed. Acknowledging only silences the alert.
-      </PageHead>
-      <section className="tray"><div className="core">
-        <div className="core__head">
-          <h2>
-            {tab === 'open' ? 'Open incidents' : tab === 'unseen' ? 'Not acknowledged' : 'Closed today'} <span className="count">{rows.length}</span>
-          </h2>
-          <ul className="legend">
-            <li>
-              <i className="sw sw--red" />
-              No stop-loss
-            </li>
-            <li>
-              <i className="sw sw--amber" />
-              Partial or far
-            </li>
-          </ul>
+          {tab !== 'closed' && rows.length > 0 && (
+            <ul className="legend" aria-label="Incident severity">
+              <li><i className="sw sw--red" aria-hidden="true" />Critical</li>
+              <li><i className="sw sw--amber" aria-hidden="true" />Needs review</li>
+            </ul>
+          )}
+        </header>
+        <div id="incident-results">
+          {rows.length === 0 ? (
+            <div className="incident-results__empty">
+              <Empty icon={needsConnection ? ConnectionSignal : active.icon} title={needsConnection ? 'No broker feeds connected' : active.empty}>
+                {needsConnection ? 'Stop-loss incidents appear once broker data is available.' : active.detail}
+              </Empty>
+              {needsConnection && view.role === 'ADMIN' && (
+                <a className="btn btn--primary" href="#accounts"><Add size={18} aria-hidden="true" /> Connect a broker</a>
+              )}
+            </div>
+          ) : (
+            <IncidentsTable incidents={rows} now={now} look={look} showClient={view.role === 'ADMIN'} onAck={onAck} ackBusy={ackBusy} onOpen={onOpen} selected={selected} />
+          )}
         </div>
-        {rows.length === 0 ? (
-          <Empty ok={tab !== 'closed'} title={tab === 'closed' ? 'No closed incidents yet' : tab === 'unseen' ? 'Everything is acknowledged' : 'No open incidents'}>
-            {tab === 'closed'
-              ? 'Incidents that were fixed or whose position was closed today are listed here. The list clears at the start of each trading day.'
-              : tab === 'unseen'
-                ? 'Open incidents are still listed under Open until the stop-loss is placed.'
-                : 'All open legs are protected right now.'}
-          </Empty>
-        ) : (
-          <IncidentsTable incidents={rows} now={now} look={look} showClient={view.role === 'ADMIN'} onAck={onAck} ackBusy={ackBusy} onOpen={onOpen} selected={selected} />
-        )}
-      </div></section>
+      </section>
     </>
   );
 }

@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import { fetchBook } from '../api';
 import { ClientBoard } from '../components/ClientBoard';
-import { ConnectionPill, StatusPill } from '../components/StatusPill';
+import { ConnectionPill, StatusPill, coverageTone } from '../components/StatusPill';
 import { Empty, FlashCell, IncidentsTable, rowKeys, type Lookups, type OpenLeg } from '../components/tables';
 import { OPEN_STATES, KIND_LABEL, Side, StateChip, fmtSigned, initials, legPnl } from '../components/bookParts';
 import { BROKER_NAME, fmtAgo, fmtClock, fmtInt, fmtPrice, fmtRupee } from '../format';
 import { useDebounced, usePolled } from '../hooks';
-import { Search, StatExposure, StatOrders, StatPnl, StatPositions, StatTrades, StatUnprotected } from '../icons';
+import { Search } from '../icons';
 import type { Account, Leg, Order, StateView, Trade } from '../types';
 
 interface Props {
@@ -23,11 +23,12 @@ interface Props {
 
 function OrdersTable({ rows }: { rows: Order[] }) {
   return (
-    <div className="tscroll tscroll--inner">
-      <table className="dt dt--tight" aria-label="Orders">
+    <div className="tscroll tscroll--inner" role="region" aria-label="Order table scroll area" tabIndex={0}>
+      <table className="dt dt--tight dt--orders" aria-label="Orders">
         <thead>
           <tr>
-            <th>Instrument</th>
+            <th className="dt__instrument">Instrument</th>
+            <th className="dt__time">Updated (IST)</th>
             <th>Side</th>
             <th className="num">Filled / qty</th>
             <th className="num">Price</th>
@@ -38,11 +39,12 @@ function OrdersTable({ rows }: { rows: Order[] }) {
           {rows.map((o) => (
             <tr key={o.broker_order_id} className={o.state === 'REJECTED' ? 'sev-red' : ''}>
               <td>
-                <span className="sym">{o.symbol}</span>
+                <span className="sym" title={o.symbol}>{o.symbol}</span>
                 <span className="sub">
                   {KIND_LABEL[o.kind] ?? o.kind} · {o.exchange} · {o.product.toLowerCase()}
                 </span>
               </td>
+              <td className="dt__time">{fmtClock(o.updated_ts)}</td>
               <td>
                 <Side side={o.side} />
               </td>
@@ -55,7 +57,7 @@ function OrdersTable({ rows }: { rows: Order[] }) {
               </td>
               <td>
                 <StateChip state={o.state} />
-                <span className="sub">{o.reject_reason ?? fmtClock(o.updated_ts)}</span>
+                {o.reject_reason && <span className="sub" title={o.reject_reason}>{o.reject_reason}</span>}
               </td>
             </tr>
           ))}
@@ -158,7 +160,7 @@ function PositionsTable({ legs, onOpen, selected }: { legs: Leg[]; onOpen: OpenL
                   {l.sl_trigger == null ? <span className="nostop">No stop</span> : fmtPrice(l.sl_trigger)}
                   <span className="cover">
                     <span className="bar bar--thin">
-                      <i className={l.severity === 'RED' ? 'r' : l.severity === 'AMBER' ? 'a' : 'g'} style={{ width: `${cover}%` }} />
+                      <i className={coverageTone[l.severity]} style={{ width: `${cover}%` }} />
                     </span>
                     <span className="sub" style={{ marginTop: 0 }}>
                       {Math.round(cover)}% cover
@@ -174,31 +176,15 @@ function PositionsTable({ legs, onOpen, selected }: { legs: Leg[]; onOpen: OpenL
   );
 }
 
-/** A tab rail over a pane, the way QuantDesk groups its containers. */
-function Dock({
-  tabs,
-  active,
-  onTab,
-  index,
-  children,
-}: {
-  tabs: { id: string; label: string; n?: number }[];
-  active: string;
-  onTab?: (id: string) => void;
-  index: number;
-  children: React.ReactNode;
-}) {
+function BookPanel({ title, count, actions, children }: { title: string; count?: number; actions?: ReactNode; children: ReactNode }) {
+  const id = useId();
   return (
-    <section className="dock tray--rise" style={{ ['--i' as string]: index }}>
-      <div className="dock__tabs" role="tablist">
-        {tabs.map((t) => (
-          <button key={t.id} type="button" role="tab" className="dock__tab" aria-selected={active === t.id} onClick={() => onTab?.(t.id)}>
-            {t.label}
-            {t.n != null && <i>{t.n}</i>}
-          </button>
-        ))}
-      </div>
-      <div className="dock__pane">{children}</div>
+    <section className="core book-panel" aria-labelledby={id}>
+      <header className="core__head">
+        <h3 id={id}>{title}{count != null && <span className="count">{count}</span>}</h3>
+        {actions}
+      </header>
+      {children}
     </section>
   );
 }
@@ -248,7 +234,7 @@ export function Book({ view, now, look, token, onAuthLost, onOpen, selected, onA
 
   const firstId = useMemo(() => [...rail.flat].sort((a, b) => a.rank - b.rank)[0]?.account.account_id ?? null, [rail.flat]);
   const [sel, setSel] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>('open');
+  const [tab, setTab] = useState<Tab | null>(null);
   const [mode, setModeRaw] = useState<'one' | 'four'>(() => {
     try {
       return localStorage.getItem('slg.bookview') === 'one' ? 'one' : 'four';
@@ -287,8 +273,8 @@ export function Book({ view, now, look, token, onAuthLost, onOpen, selected, onA
 
   const acct = accounts.find((a) => a.account_id === sel);
   const { data: book, loading, error } = usePolled(
-    (signal) => (sel ? fetchBook(token, sel, signal) : Promise.reject(new Error('No account selected'))),
-    [token, sel],
+    (signal) => (mode === 'one' && sel ? fetchBook(token, sel, signal) : Promise.resolve(null)),
+    [token, sel, mode],
     4000,
     onAuthLost,
   );
@@ -297,7 +283,9 @@ export function Book({ view, now, look, token, onAuthLost, onOpen, selected, onA
   const orders = fresh?.orders ?? [];
   const trades = fresh?.trades ?? [];
   const openOrders = orders.filter((o) => OPEN_STATES.has(o.state));
+  const activeTab = tab ?? (openOrders.length === 0 && orders.length > 0 ? 'all' : 'open');
   const bad = legs.filter((l) => l.severity === 'RED' || l.severity === 'AMBER').length;
+  const waiting = legs.filter((l) => l.severity === 'GREY').length;
   const bought = trades.filter((t) => t.side === 'BUY').reduce((s, t) => s + t.qty * t.price, 0);
   const sold = trades.filter((t) => t.side === 'SELL').reduce((s, t) => s + t.qty * t.price, 0);
   const pnls = legs.map(legPnl);
@@ -307,10 +295,8 @@ export function Book({ view, now, look, token, onAuthLost, onOpen, selected, onA
 
   if (accounts.length === 0) {
     return (
-      <section className="tray">
-        <div className="core">
-          <Empty title="No accounts yet">Broker accounts appear here once they are added to the desk.</Empty>
-        </div>
+      <section className="core">
+        <Empty title="No accounts yet">Broker accounts appear here once they are added to the desk.</Empty>
       </section>
     );
   }
@@ -325,7 +311,7 @@ export function Book({ view, now, look, token, onAuthLost, onOpen, selected, onA
   const viewSwitch = (
     <div className="seg" role="group" aria-label="Layout">
       <button type="button" aria-pressed={mode === 'four'} onClick={() => setMode('four')}>
-        Four clients
+        Client boards
       </button>
       <button type="button" aria-pressed={mode === 'one'} onClick={() => setMode('one')}>
         One account
@@ -353,7 +339,7 @@ export function Book({ view, now, look, token, onAuthLost, onOpen, selected, onA
           <span className="rail-count">
             {rail.groups.length} of {view.overview.length} clients · {shown} accounts
           </span>
-          <div className="boards__pager">
+          {pages > 1 && <div className="boards__pager">
             <button type="button" className="btn" disabled={pg === 0} onClick={() => setPage(pg - 1)}>
               Previous
             </button>
@@ -363,10 +349,12 @@ export function Book({ view, now, look, token, onAuthLost, onOpen, selected, onA
             <button type="button" className="btn" disabled={pg >= pages - 1} onClick={() => setPage(pg + 1)}>
               Next
             </button>
-          </div>
+          </div>}
         </div>
         {slice.length === 0 ? (
-          <p className="rail-empty">{dq ? 'No client or account matches.' : 'Nothing needs attention right now.'}</p>
+          <section className="core">
+            <Empty title={dq ? 'No matches' : 'No accounts need attention'}>{dq ? 'Try another client or account name.' : 'Clear the filter to see all accounts.'}</Empty>
+          </section>
         ) : (
           <div className="boards__grid">
             {slice.map((g, i) => (
@@ -451,40 +439,34 @@ export function Book({ view, now, look, token, onAuthLost, onOpen, selected, onA
 
       {acct && (
         <section className="book__main" key={acct.account_id}>
-          <header className="acct-head">
-            <div>
-              <span className="eyebrow">{look.clientName(acct.client_id)}</span>
-              <h1>
-                {BROKER_NAME[acct.broker]} <span className="muted">{acct.account_id}</span>
-              </h1>
-              {fresh && (
-                <p className="acct-head__sub">
-                  {legs.length} open {legs.length === 1 ? 'position' : 'positions'}, {bad > 0 ? <b className="t-red">{bad} without a full stop-loss</b> : <b className="t-green">all protected</b>}
-                  {openOrders.length > 0 && <>, {openOrders.length} open {openOrders.length === 1 ? 'order' : 'orders'}</>}.
-                </p>
-              )}
-            </div>
-            <dl className="acct-head__meta">
-              <div>
-                <dt>Connection</dt>
-                <dd>
-                  <ConnectionPill status={acct.status} />
-                </dd>
+          <section className="core book-summary" aria-label="Account summary">
+            <header className="acct-head">
+              <div className="acct-head__identity">
+                <h2>{BROKER_NAME[acct.broker]}</h2>
+                <p className="acct-head__sub">{look.clientName(acct.client_id)} <span aria-hidden="true">·</span> {acct.account_id}</p>
               </div>
-              <div>
-                <dt>Last good read</dt>
-                <dd>{fmtAgo(acct.last_ok, now)}</dd>
+              <dl className="acct-head__meta">
+                <div><dt>Connection</dt><dd><ConnectionPill status={acct.status} /></dd></div>
+                <div><dt>Last good read</dt><dd>{fmtAgo(acct.last_ok, now)}</dd></div>
+                <div><dt>Latency</dt><dd>{acct.latency_ms == null ? '—' : `${acct.latency_ms} ms`}</dd></div>
+                <div><dt>Polls today</dt><dd>{fmtInt(acct.polls)}</dd></div>
+              </dl>
+            </header>
+            <dl className="stats">
+              <div><dt>Open positions</dt><dd>{fresh ? legs.length : '—'}</dd></div>
+              <div className={bad > 0 ? 'is-bad' : undefined}>
+                <dt>Stops to review</dt>
+                <dd>{fresh ? bad : '—'}{waiting > 0 && <small>{waiting} unverified</small>}</dd>
               </div>
-              <div>
-                <dt>Latency</dt>
-                <dd>{acct.latency_ms == null ? '-' : `${acct.latency_ms} ms`}</dd>
+              <div><dt>Open orders</dt><dd>{fresh ? openOrders.length : '—'}</dd></div>
+              <div><dt>Executed trades</dt><dd>{fresh ? trades.length : '—'}</dd></div>
+              <div className={pnlTotal > 0 ? 'is-up' : pnlTotal < 0 ? 'is-bad' : undefined}>
+                <dt>Open P&amp;L</dt>
+                <dd>{fresh ? (pnlTotal === 0 ? fmtRupee(0) : fmtSigned(pnlTotal)) : '—'}</dd>
               </div>
-              <div>
-                <dt>Polls today</dt>
-                <dd>{fmtInt(acct.polls)}</dd>
-              </div>
+              <div><dt>Exposure</dt><dd>{fresh ? fmtRupee(exposure) : '—'}</dd></div>
             </dl>
-          </header>
+          </section>
 
           {acct.status === 'FAILED' && (
             <div className="banner banner--warn" role="status">
@@ -501,80 +483,41 @@ export function Book({ view, now, look, token, onAuthLost, onOpen, selected, onA
             </div>
           )}
 
-          <dl className="stats">
-            <div className="tone-accent">
-              <span className="stats__ico" aria-hidden="true">
-                <StatPositions size={24} />
-              </span>
-              <dt>Open positions</dt>
-              <dd>{fresh ? legs.length : '–'}</dd>
-            </div>
-            <div className={bad ? 'tone-red is-bad' : 'tone-green'}>
-              <span className="stats__ico" aria-hidden="true">
-                <StatUnprotected size={24} />
-              </span>
-              <dt>Without full stop</dt>
-              <dd>{fresh ? bad : '–'}</dd>
-            </div>
-            <div className="tone-amber">
-              <span className="stats__ico" aria-hidden="true">
-                <StatOrders size={24} />
-              </span>
-              <dt>Open orders</dt>
-              <dd>{fresh ? openOrders.length : '–'}</dd>
-            </div>
-            <div className="tone-grey">
-              <span className="stats__ico" aria-hidden="true">
-                <StatTrades size={24} />
-              </span>
-              <dt>Executed trades</dt>
-              <dd>{fresh ? trades.length : '–'}</dd>
-            </div>
-            <div className={fresh && pnlTotal !== 0 ? (pnlTotal > 0 ? 'tone-green is-up' : 'tone-red is-bad') : 'tone-grey'}>
-              <span className="stats__ico" aria-hidden="true">
-                <StatPnl size={24} />
-              </span>
-              <dt>Open P&amp;L</dt>
-              <dd>{fresh ? fmtSigned(pnlTotal) : '–'}</dd>
-            </div>
-            <div className="tone-accent">
-              <span className="stats__ico" aria-hidden="true">
-                <StatExposure size={24} />
-              </span>
-              <dt>Exposure</dt>
-              <dd>{fresh ? fmtRupee(exposure) : '–'}</dd>
-            </div>
-          </dl>
+          <div className={`book__cols${fresh && (legs.length === 0 || orders.length === 0) ? ' book__cols--stacked' : ''}`}>
+            <BookPanel title="Open positions" count={fresh ? legs.length : undefined}>
+              {!fresh ? skeleton : legs.length === 0 ? <p className="acct__none">{acct.status === 'OK' ? 'No open positions.' : 'Open positions could not be verified.'}</p> : <PositionsTable legs={legs} onOpen={onOpen} selected={selected} />}
+            </BookPanel>
 
-          <div className="book__cols">
-            <Dock tabs={[{ id: 'pos', label: 'Open positions', n: fresh ? legs.length : undefined }]} active="pos" index={0}>
-              {!fresh ? skeleton : legs.length === 0 ? <Empty title="Flat">No open positions on this account.</Empty> : <PositionsTable legs={legs} onOpen={onOpen} selected={selected} />}
-            </Dock>
-
-            <Dock
-              index={1}
-              active={tab}
-              onTab={(id) => setTab(id as Tab)}
-              tabs={[
-                { id: 'open', label: 'Open orders', n: openOrders.length },
-                { id: 'fills', label: 'Executed', n: trades.length },
-                { id: 'all', label: 'All orders', n: orders.length },
-              ]}
+            <BookPanel
+              title="Orders and trades"
+              actions={
+                <div className="seg" role="group" aria-label="Order book view">
+                  {([
+                    ['open', 'Open orders', openOrders.length],
+                    ['fills', 'Executions', trades.length],
+                    ['all', 'All orders', orders.length],
+                  ] as const).map(([id, label, count]) => (
+                    <button key={id} type="button" aria-pressed={activeTab === id} onClick={() => setTab(id)}>
+                      {label} {fresh && <i>{count}</i>}
+                    </button>
+                  ))}
+                </div>
+              }
             >
               {!fresh ? (
                 skeleton
-              ) : tab === 'fills' ? (
+              ) : activeTab === 'fills' ? (
                 trades.length === 0 ? (
-                  <Empty title="No executions yet">Fills from today's trade book appear here.</Empty>
+                  <p className="acct__none">No executed trades today.</p>
                 ) : (
                   <TradesTable rows={trades} />
                 )
-              ) : (tab === 'open' ? openOrders : orders).length === 0 ? (
-                <Empty title={tab === 'open' ? 'No open orders' : 'No orders yet'}>{tab === 'open' ? 'Nothing is waiting at the exchange for this account.' : "Today's order book is empty."}</Empty>
+              ) : (activeTab === 'open' ? openOrders : orders).length === 0 ? (
+                <p className="acct__none">{activeTab === 'open' ? 'No open orders.' : 'No orders today.'}</p>
               ) : (
-                <OrdersTable rows={tab === 'open' ? openOrders : orders} />
+                <OrdersTable rows={activeTab === 'open' ? openOrders : orders} />
               )}
-              {fresh && tab === 'fills' && trades.length > 0 && (
+              {fresh && activeTab === 'fills' && trades.length > 0 && (
                 <div className="core__foot">
                   <span>
                     Bought <b className="num">{fmtRupee(bought)}</b>
@@ -584,16 +527,16 @@ export function Book({ view, now, look, token, onAuthLost, onOpen, selected, onA
                   </span>
                 </div>
               )}
-            </Dock>
+            </BookPanel>
           </div>
 
-          <Dock tabs={[{ id: 'inc', label: 'Incidents on this account', n: acctIncidents.length }]} active="inc" index={2}>
+          <BookPanel title="Account incidents" count={acctIncidents.length}>
             {acctIncidents.length === 0 ? (
-              <Empty ok title="No incidents today">Every stop-loss on this account has held since the day started.</Empty>
+              <p className="acct__none">No stop-loss incidents recorded today.</p>
             ) : (
               <IncidentsTable incidents={acctIncidents} now={now} look={look} showClient={false} onAck={onAck} ackBusy={ackBusy} onOpen={onOpen} selected={selected} />
             )}
-          </Dock>
+          </BookPanel>
         </section>
       )}
     </div>

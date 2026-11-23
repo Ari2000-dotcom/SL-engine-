@@ -17,6 +17,7 @@ const SEVERITY: Record<LegStatus, Severity> = {
 };
 
 export const severityOf = (s: LegStatus): Severity => SEVERITY[s];
+export const coverageTone: Record<Severity, string> = { RED: 'r', AMBER: 'a', GREEN: 'g', GREY: 'n' };
 
 const ICON = {
   RED: ErrorFilled,

@@ -82,9 +82,7 @@ export function Legs({ view, look, token, onAuthLost, onOpen, selected }: Props)
 
   return (
     <>
-      <PageHead title="All open legs" count={`${tot.total} legs`}>
-        Worst first. <b className="t-red">{tot.red} have no stop-loss</b>, <b className="t-amber">{tot.amber} are partial or too far</b>, <b className="t-green">{tot.green} are protected</b>. Click a row for the full picture.
-      </PageHead>
+      <PageHead title="All open legs" count={`${tot.total} legs`} />
 
       <div className="filters">
         <div className="search">
@@ -136,7 +134,9 @@ export function Legs({ view, look, token, onAuthLost, onOpen, selected }: Props)
               <div />
             </div>
           ) : data && data.legs.length === 0 ? (
-            <Empty title="No legs match">Clear the search or filters to see every open leg.</Empty>
+            <Empty title={filtered ? 'No legs match' : 'No open legs'}>
+              {filtered ? 'Clear the search or filters to see every open leg.' : 'Open positions appear here as broker data updates.'}
+            </Empty>
           ) : (
             data && <LegsTable legs={data.legs} look={look} showClient={admin} onOpen={onOpen} selected={selected} />
           )}
