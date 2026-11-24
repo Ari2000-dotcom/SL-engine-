@@ -2914,7 +2914,8 @@ p { margin: 0; }
 }
 
 // Arc number field inside the risk form: label colour follows the desk's other field labels.
-.risk-grid [class*='_label_'] { color: var(--text-2); }
+.risk-grid [class*='_label_'],
+.risk-grid [class*='_field_'] > label { color: var(--text-2); font-size: 12px; font-weight: 500; }
 
 // Arc animated counter inside a metric card: keep the card's own number style, only the digit roll is Arc's.
 .metric__value [class*='_counter_'] {
@@ -2923,3 +2924,59 @@ p { margin: 0; }
   line-height: inherit;
   color: inherit;
 }
+
+// Arc text fields draw one focus ring on their frame; stop the desk's global ring doubling up on the inner input.
+[class*='_shell_'] > input:focus-visible { outline: none; }
+[class*='_shell_']:has(> input:focus-visible) { outline: 2px solid var(--focus-edge, var(--accent)); outline-offset: -1px; }
+
+// Legs filter bar: the Arc client picker and broker select keep their labels for screen readers but hide them visually.
+.filters [class*='_field_'] > label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.filters [class*='_field_'] { width: 10.5rem; }
+.filters [class*='_field_']:has([role='combobox'][aria-label]) { width: auto; }
+
+// Active-tab glide (components/ActiveGlide.tsx): one highlight per tab group that slides to the newly active tab.
+.glide {
+  position: absolute;
+  inset: 0;
+  z-index: -1; // below every label in the group's stacking context
+  border-radius: inherit;
+  pointer-events: none;
+}
+.glide--pill { background: var(--wash-2); }
+.glide--line { inset: auto 0 -2px 0; height: 2px; border-radius: 2px; background: var(--accent); }
+.glide--nav {
+  border: 1px solid var(--sidebar-active-edge, transparent);
+  background: var(--sidebar-active);
+  &::before {
+    content: '';
+    position: absolute;
+    left: -12px;
+    top: 6px;
+    bottom: 6px;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: var(--accent);
+  }
+}
+// Content stays above the moving highlight.
+.sidebar__item,
+.seg--glide button,
+.acct__tabs--glide button { position: relative; }
+// The group is the layer, so a highlight passing under a neighbouring tab stays below that tab's label too.
+.sidebar__group,
+.seg--glide,
+.acct__tabs--glide { isolation: isolate; }
+.sidebar__item > :not(.glide),
+.seg--glide button > :not(.glide),
+.acct__tabs--glide button > :not(.glide) { position: relative; z-index: 1; }
+// The glide now draws the active state, so the old static ones step aside.
+.sidebar__item[aria-current='page'] { background: transparent; &::before { content: none; } }
+.core__head .seg--glide button[aria-pressed='true'] { border-bottom-color: transparent; background: none; box-shadow: none; }
+.acct__tabs--glide button[aria-pressed='true'] { background: transparent; }

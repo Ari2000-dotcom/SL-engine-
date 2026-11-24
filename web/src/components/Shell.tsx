@@ -1,6 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { BROKER_NAME } from '../format';
 import { Tooltip } from './arc/tooltip/tooltip';
+import { ActiveGlide } from './ActiveGlide';
 import { Asleep, Book, Close, ConnectionSignal, Dashboard, Light, Logout, Notification, NotificationOff, Search, Security, Settings, SidePanelClose, SidePanelOpen, Table, WarningAlt } from '../icons';
 import type { Link } from '../hooks';
 import type { Account, ClientOverview, Role } from '../types';
@@ -204,6 +205,7 @@ export function Navigation({ page, onPage, role, username, openIncidents, open, 
         const Icon = PAGE_ICONS[item.id];
         return (
           <button key={item.id} type="button" className="sidebar__item" aria-current={page === item.id ? 'page' : undefined} onClick={() => onPage(item.id)} title={`${item.label} (F${offset + index + 1})`}>
+            {page === item.id && <ActiveGlide group="sidebar-active" variant="nav" />}
             <Icon size={20} aria-hidden="true" />
             <span>{item.label}</span>
             {item.id === 'incidents' && openIncidents > 0 && <span className="sidebar__count">{openIncidents}</span>}

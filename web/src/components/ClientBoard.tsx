@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
+import { ActiveGlide } from './ActiveGlide';
 import { Search } from '../icons';
 import { fetchBook } from '../api';
 import { BROKER_NAME, STATUS_LABEL, fmtClock, fmtInt, fmtPrice } from '../format';
@@ -131,6 +132,7 @@ function AccountSection({ item, q, token, onAuthLost, onOpen, selected, onPick }
   const { data, error } = usePolled((signal) => fetchBook(token, a.account_id, signal), [token, a.account_id], 5000, onAuthLost);
   const book = data && data.account_id === a.account_id ? data : null;
   const [pickedFilter, setPickedFilter] = useState<OrderFilter | null>(null);
+  const filterTabs = useId();
   const byTime = (x: string | null, y: string | null) => (y ?? '').localeCompare(x ?? '');
   const allLegs = [...(book?.legs ?? [])].sort((x, y) => byTime(x.opened_ts, y.opened_ts));
   const legs = allLegs.filter((l) => matches(q, legText(l)));
@@ -194,9 +196,10 @@ function AccountSection({ item, q, token, onAuthLost, onOpen, selected, onPick }
         <div className="acct__col">
           <div className="acct__label">
             <span>Orders</span>
-            <div className="acct__tabs" role="group" aria-label="Which orders">
+            <div className="acct__tabs acct__tabs--glide" role="group" aria-label="Which orders">
               {(['open', 'prev', 'all'] as const).map((id) => (
                 <button key={id} type="button" aria-pressed={filter === id} onClick={() => setPickedFilter(id)}>
+                  {filter === id && <ActiveGlide group={filterTabs} variant="pill" />}
                   {ORDER_FILTERS[id]} <i>{book ? groups[id].length : '–'}</i>
                 </button>
               ))}

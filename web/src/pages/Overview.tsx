@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { fmtDuration } from '../format';
 import Switch from '../components/arc/switch/switch';
+import { Gauge } from '../components/arc/gauge/gauge';
 import { ClientsTable, Empty, IncidentsTable, LegsTable, type Lookups, type OpenLeg } from '../components/tables';
 import { Metric, PageHead } from '../components/cards';
 import type { Page } from '../components/Shell';
@@ -154,7 +155,16 @@ export function Overview({ view, now, look, onAck, ackBusy, onNav, onOpen, selec
         <section className="core coverage">
           <header className="overview-panel-head"><div><h2>Stop-loss coverage</h2><p>Breakdown of all open legs</p></div></header>
           <div className="coverage__body">
-            <p className="coverage__headline"><strong className="num">{totals.total ? `${Math.round(totals.green / totals.total * 100)}%` : '—'}</strong><span>of legs protected</span></p>
+            {totals.total ? (
+              <Gauge
+                label="Legs protected"
+                value={Math.round((totals.green / totals.total) * 100)}
+                detail={`${totals.green} of ${totals.total} open legs have a valid stop-loss`}
+                thresholds={[{ from: 0, tone: 'danger', label: 'Exposed' }, { from: 70, tone: 'warning', label: 'Partly covered' }, { from: 95, tone: 'success', label: 'Covered' }]}
+              />
+            ) : (
+              <p className="coverage__headline"><strong className="num">—</strong><span>No open legs to check</span></p>
+            )}
             <div className="coverage__bar" aria-hidden="true">
               {coverage.filter((item) => item.count > 0).map((item) => <span key={item.tone} className={`coverage__segment tone-${item.tone}`} style={{ flexGrow: item.count }} />)}
             </div>

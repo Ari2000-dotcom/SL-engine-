@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { fetchLegs } from '../api';
 import { PageHead } from '../components/cards';
 import SegmentedControl from '../components/arc/segmented-control/segmented-control';
+import { Combobox } from '../components/arc/combobox/combobox';
+import { Select } from '../components/arc/select/select';
+import { Pagination } from '../components/arc/pagination/pagination';
 import { Search } from '../icons';
 import { Empty, LegsTable, type Lookups, type OpenLeg } from '../components/tables';
 import { useDebounced, usePolled } from '../hooks';
@@ -98,23 +101,29 @@ export function Legs({ view, look, token, onAuthLost, onOpen, selected }: Props)
           options={SEGS.map(([id, label]) => ({ value: id, label, accessory: <span className="num">{counts[id]}</span> }))}
         />
         {admin && (
-          <select className="sel" aria-label="Client" value={client} onChange={(e) => setClient(e.target.value)}>
-            <option value="ALL">All clients</option>
-            {[...view.overview]
-              .sort((a, b) => a.name.localeCompare(b.name))
-              .map((c) => (
-                <option key={c.client_id} value={c.client_id}>
-                  {c.name}
-                </option>
-              ))}
-          </select>
+          <Combobox
+            label="Client"
+            placeholder="All clients"
+            emptyMessage="No client matches"
+            value={client}
+            onValueChange={(v) => setClient(v || 'ALL')}
+            options={[
+              { value: 'ALL', label: 'All clients' },
+              ...[...view.overview].sort((a, b) => a.name.localeCompare(b.name)).map((c) => ({ value: c.client_id, label: c.name, keywords: [c.group] })),
+            ]}
+          />
         )}
-        <select className="sel" aria-label="Broker" value={broker} onChange={(e) => setBroker(e.target.value)}>
-          <option value="ALL">All brokers</option>
-          <option value="ZERODHA">Zerodha Kite</option>
-          <option value="ANGEL">Angel One</option>
-          <option value="KOTAK">Kotak Neo</option>
-        </select>
+        <Select
+          label="Broker"
+          value={broker}
+          onValueChange={setBroker}
+          options={[
+            { value: 'ALL', label: 'All brokers' },
+            { value: 'ZERODHA', label: 'Zerodha Kite' },
+            { value: 'ANGEL', label: 'Angel One' },
+            { value: 'KOTAK', label: 'Kotak Neo' },
+          ]}
+        />
       </div>
 
       <section className="tray">
@@ -144,14 +153,7 @@ export function Legs({ view, look, token, onAuthLost, onOpen, selected }: Props)
               <span className="muted">
                 Page {page + 1} of {Math.ceil(total / PAGE)}
               </span>
-              <div>
-                <button type="button" className="btn" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>
-                  Previous
-                </button>
-                <button type="button" className="btn" disabled={to >= total} onClick={() => setPage((p) => p + 1)}>
-                  Next
-                </button>
-              </div>
+              <Pagination label="Legs pages" page={page + 1} pageCount={Math.ceil(total / PAGE)} onPageChange={(p) => setPage(p - 1)} />
             </div>
           )}
         </div>

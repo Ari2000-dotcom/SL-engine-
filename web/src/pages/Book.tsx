@@ -2,6 +2,8 @@ import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import { fetchBook } from '../api';
 import SegmentedControl from '../components/arc/segmented-control/segmented-control';
 import Switch from '../components/arc/switch/switch';
+import { Pagination } from '../components/arc/pagination/pagination';
+import { ActiveGlide } from '../components/ActiveGlide';
 import { ClientBoard } from '../components/ClientBoard';
 import { ConnectionPill, StatusPill, coverageTone } from '../components/StatusPill';
 import { Empty, FlashCell, IncidentsTable, rowKeys, type Lookups, type OpenLeg } from '../components/tables';
@@ -203,6 +205,7 @@ interface RailAccount {
 
 export function Book({ view, now, look, token, onAuthLost, onOpen, selected, onAck, ackBusy }: Props) {
   const accounts = view.accounts;
+  const orderTabs = useId();
   const [query, setQuery] = useState('');
   const [onlyProblems, setOnlyProblems] = useState(view.accounts.length > 40);
   const dq = useDebounced(query, 150).trim().toLowerCase();
@@ -336,17 +339,7 @@ export function Book({ view, now, look, token, onAuthLost, onOpen, selected, onA
           <span className="rail-count">
             {rail.groups.length} of {view.overview.length} clients · {shown} accounts
           </span>
-          {pages > 1 && <div className="boards__pager">
-            <button type="button" className="btn" disabled={pg === 0} onClick={() => setPage(pg - 1)}>
-              Previous
-            </button>
-            <span>
-              {pg + 1} of {pages}
-            </span>
-            <button type="button" className="btn" disabled={pg >= pages - 1} onClick={() => setPage(pg + 1)}>
-              Next
-            </button>
-          </div>}
+          {pages > 1 && <Pagination label="Client board pages" page={pg + 1} pageCount={pages} onPageChange={(p) => setPage(p - 1)} />}
         </div>
         {slice.length === 0 ? (
           <section className="core">
@@ -485,13 +478,14 @@ export function Book({ view, now, look, token, onAuthLost, onOpen, selected, onA
             <BookPanel
               title="Orders and trades"
               actions={
-                <div className="seg" role="group" aria-label="Order book view">
+                <div className="seg seg--glide" role="group" aria-label="Order book view">
                   {([
                     ['open', 'Open orders', openOrders.length],
                     ['fills', 'Executions', trades.length],
                     ['all', 'All orders', orders.length],
                   ] as const).map(([id, label, count]) => (
                     <button key={id} type="button" aria-pressed={activeTab === id} onClick={() => setTab(id)}>
+                      {activeTab === id && <ActiveGlide group={orderTabs} variant="line" />}
                       {label} {fresh && <i>{count}</i>}
                     </button>
                   ))}

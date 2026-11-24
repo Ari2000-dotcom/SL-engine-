@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { KeyRound, RefreshCw, Trash2 } from 'lucide-react';
 import { ExpandingButtonGroup } from './arc/ExpandingButtonGroup';
+import HoldToConfirm from './arc/hold-to-confirm/hold-to-confirm';
+import Alert from './arc/alert/alert';
 import { addAccount, removeAccount, setAccountToken, type ManagedAccount, type NewAccount } from '../api';
 import { BROKER_NAME, fmtAgo } from '../format';
 import type { Broker, ClientOverview } from '../types';
@@ -157,11 +159,7 @@ export function AddAccount({ token, clients, onDone, onCancel }: { token: string
             </fieldset>
           )}
 
-          {error && (
-            <div className="banner banner--warn" role="alert">
-              <span className="banner__text">{error}</span>
-            </div>
-          )}
+          {error && <Alert tone="warning" title={error} />}
           <div className="aform__actions">
             <button type="button" className="btn" onClick={onCancel}>
               Cancel
@@ -267,9 +265,7 @@ export function ManagedList({ token, rows, clients, now, onChanged }: { token: s
                   <div className="mlist__actions">
                     {confirm === r.account_id ? (
                       <>
-                        <button type="button" className="btn btn--danger" disabled={busy} onClick={() => void remove(r.account_id)}>
-                          Confirm remove
-                        </button>
+                        <HoldToConfirm tone="danger" label="Hold to remove" confirmedLabel="Removed" duration={900} icon={<Trash2 />} disabled={busy} onConfirm={() => void remove(r.account_id)} />
                         <button type="button" className="btn" onClick={() => setConfirm(null)}>
                           Keep
                         </button>

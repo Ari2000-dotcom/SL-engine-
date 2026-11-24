@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { login } from '../api';
 import { DeskBrand } from '../components/Shell';
-import { View, ViewOff } from '../icons';
+import Alert from '../components/arc/alert/alert';
+import { Input } from '../components/arc/input/input';
+import { PasswordField } from '../components/arc/password-field/password-field';
 import type { Session } from '../types';
 
 export function Login({ onSession }: { onSession: (s: Session) => void }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -33,20 +34,9 @@ export function Login({ onSession }: { onSession: (s: Session) => void }) {
             <h1 id="login-title">Sign in to RMS Desk</h1>
             <p>Use your desk credentials to access the monitor.</p>
           </div>
-          {error && <div className="banner" role="alert">{error}</div>}
-          <label className="fld">
-            <span>Username</span>
-            <input name="username" autoComplete="username" autoFocus value={username} onChange={(e) => setUsername(e.target.value)} />
-          </label>
-          <div className="fld">
-            <label htmlFor="password">Password</label>
-            <div className="password-field">
-              <input id="password" name="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
-              <button type="button" onClick={() => setShowPassword((show) => !show)} aria-label={showPassword ? 'Hide password' : 'Show password'}>
-                {showPassword ? <ViewOff size={16} aria-hidden="true" /> : <View size={16} aria-hidden="true" />}
-              </button>
-            </div>
-          </div>
+          {error && <Alert tone="danger" title={error} />}
+          <Input label="Username" name="username" autoComplete="username" autoFocus value={username} onChange={(e) => setUsername(e.target.value)} />
+          <PasswordField label="Password" name="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
           <button type="submit" className="btn btn--primary login__submit" disabled={busy || !username.trim() || !password}>
             {busy ? 'Signing in…' : 'Sign in'}
           </button>

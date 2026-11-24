@@ -4,9 +4,13 @@ import { saveRisk } from '../api';
 import { PageHead } from '../components/cards';
 import { NumberField } from '../components/arc/number-field/number-field';
 import Toast from '../components/arc/toast/toast';
+import Alert from '../components/arc/alert/alert';
+import { Combobox } from '../components/arc/combobox/combobox';
+import { Select } from '../components/arc/select/select';
 import type { RiskRule, RiskSetting, Segment, StateView } from '../types';
 
 const SEGMENTS: Segment[] = ['EQ', 'FUT', 'OPT', 'CUR', 'COM'];
+const ALL = '__all__';
 const DEFAULT: RiskSetting = { mode: 'PCT', max_pct: 40, max_rupee: 25000, grace_sec: 15 };
 
 function validate(rules: RiskRule[]): string | null {
@@ -82,27 +86,26 @@ export function Risk({ view, token }: { view: StateView; token: string }) {
               <fieldset key={i} className="risk-rule">
                 <legend>{defaultRule ? 'Default rule' : `Rule ${i + 1}`}</legend>
                 <div className="risk-grid">
-                  <label className="fld">
-                    <span>Client</span>
-                    <select value={r.client_id ?? ''} onChange={(e) => patch(i, (x) => ({ ...x, client_id: e.target.value || null }))}>
-                      <option value="">All clients</option>
-                      {view.overview.map((c) => <option key={c.client_id} value={c.client_id}>{c.name}</option>)}
-                    </select>
-                  </label>
-                  <label className="fld">
-                    <span>Segment</span>
-                    <select value={r.segment ?? ''} onChange={(e) => patch(i, (x) => ({ ...x, segment: (e.target.value || null) as Segment | null }))}>
-                      <option value="">All segments</option>
-                      {SEGMENTS.map((segment) => <option key={segment} value={segment}>{segment}</option>)}
-                    </select>
-                  </label>
-                  <label className="fld">
-                    <span>Check loss by</span>
-                    <select value={r.setting.mode} onChange={(e) => patch(i, (x) => ({ ...x, setting: { ...x.setting, mode: e.target.value as RiskSetting['mode'] } }))}>
-                      <option value="PCT">% of entry price</option>
-                      <option value="RUPEE">Rupees per leg</option>
-                    </select>
-                  </label>
+                  <Combobox
+                    label="Client"
+                    placeholder="All clients"
+                    emptyMessage="No client matches"
+                    value={r.client_id ?? ALL}
+                    onValueChange={(v) => patch(i, (x) => ({ ...x, client_id: !v || v === ALL ? null : v }))}
+                    options={[{ value: ALL, label: 'All clients' }, ...view.overview.map((c) => ({ value: c.client_id, label: c.name, keywords: [c.group] }))]}
+                  />
+                  <Select
+                    label="Segment"
+                    value={r.segment ?? ALL}
+                    onValueChange={(v) => patch(i, (x) => ({ ...x, segment: (v === ALL ? null : v) as Segment | null }))}
+                    options={[{ value: ALL, label: 'All segments' }, ...SEGMENTS.map((segment) => ({ value: segment, label: segment }))]}
+                  />
+                  <Select
+                    label="Check loss by"
+                    value={r.setting.mode}
+                    onValueChange={(v) => patch(i, (x) => ({ ...x, setting: { ...x.setting, mode: v as RiskSetting['mode'] } }))}
+                    options={[{ value: 'PCT', label: '% of entry price' }, { value: 'RUPEE', label: 'Rupees per leg' }]}
+                  />
                   <NumberField
                     size="sm"
                     label={percent ? 'Maximum loss (%)' : 'Maximum loss (₹)'}
@@ -138,7 +141,7 @@ export function Risk({ view, token }: { view: StateView; token: string }) {
             );
           })}
           <p className="risk-form__hint">Grace is the time allowed for a new position to receive a stop-loss.</p>
-          {msg && <div className={`banner${msg.kind === 'success' ? ' banner--success' : ''}`} role={msg.kind === 'error' ? 'alert' : 'status'}>{msg.text}</div>}
+          {msg && <Alert tone={msg.kind === 'success' ? 'success' : 'danger'} title={msg.text} />}
           <div className="form-actions">
             <button type="button" className="btn" onClick={() => {
               setMsg(null);
