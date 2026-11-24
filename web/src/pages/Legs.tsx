@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { fetchLegs } from '../api';
 import { PageHead } from '../components/cards';
+import SegmentedControl from '../components/arc/segmented-control/segmented-control';
 import { Search } from '../icons';
 import { Empty, LegsTable, type Lookups, type OpenLeg } from '../components/tables';
 import { useDebounced, usePolled } from '../hooks';
@@ -90,14 +91,12 @@ export function Legs({ view, look, token, onAuthLost, onOpen, selected }: Props)
           <input ref={input} aria-label="Search legs" placeholder="Search symbol or client" value={q} onChange={(e) => setQ(e.target.value)} />
           <kbd>/</kbd>
         </div>
-        <div className="seg" role="group" aria-label="Status filter">
-          {SEGS.map(([id, label]) => (
-            <button key={id} type="button" aria-pressed={sev === id} onClick={() => setSev(id)}>
-              {label}
-              <i>{counts[id]}</i>
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          label="Status filter"
+          value={sev}
+          onValueChange={setSev}
+          options={SEGS.map(([id, label]) => ({ value: id, label, accessory: <span className="num">{counts[id]}</span> }))}
+        />
         {admin && (
           <select className="sel" aria-label="Client" value={client} onChange={(e) => setClient(e.target.value)}>
             <option value="ALL">All clients</option>

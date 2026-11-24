@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import AnimatedCounter from './arc/animated-counter/animated-counter';
 import type { Table } from '../icons';
 
 interface MetricProps {
@@ -15,7 +16,7 @@ export function Metric({ label, value, unit, tone, icon: Icon, children }: Metri
     <section className={`metric metric--${tone}`}>
       <span className="metric__icon"><Icon size={22} aria-hidden="true" /></span>
       <h2>{label}</h2>
-      <p className="metric__value"><strong className="num">{value}</strong>{unit && <small className="num">{unit}</small>}</p>
+      <p className="metric__value"><strong className="num">{typeof value === 'number' ? <AnimatedCounter value={value} /> : value}</strong>{unit && <small className="num">{unit}</small>}</p>
       <p className="metric__detail">{children}</p>
     </section>
   );

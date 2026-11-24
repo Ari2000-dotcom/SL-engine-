@@ -1,0 +1,67 @@
+// Bridge between Arc UI components (src/components/arc) and the desk's own tokens.
+// Arc reads names like --foreground and --border; here they alias the desk palette, so light and dark
+// follow data-theme with no second theme. Names the desk already owns (--surface, --accent, --text-1..3) are
+// deliberately NOT redefined: Arc's global foundation.css would override them, which is why it is not imported.
+:root {
+  // colour roles
+  --background: var(--bg);
+  --foreground: var(--text);
+  --border: var(--line);
+  --border-subtle: var(--hair);
+  --border-strong: var(--line-strong);
+  --surface-muted: var(--well);
+  --surface-raised: var(--surface-2);
+  --text-secondary: var(--text-2);
+  --text-muted: var(--text-3);
+  --danger: var(--red);
+  --success: var(--green);
+  --warning: var(--amber);
+  --accent-strong: var(--accent-fill);
+  --accent-foreground: var(--accent-ink);
+  --accent-subtle: color-mix(in srgb, var(--accent) 12%, transparent);
+
+  // selection controls (switch)
+  --control-on: var(--accent-fill);
+  --control-glyph: var(--accent-ink);
+  --control-track: var(--surface-3);
+  --control-track-hover: var(--line-strong);
+  --control-thumb: #fff;
+  --control-thumb-on: var(--accent-ink);
+  --control-thumb-shadow: 0 0 0 0.5px rgb(0 0 0 / 14%), 0 1px 2px rgb(0 0 0 / 28%);
+  --control-on-subtle: color-mix(in srgb, var(--control-on) 14%, transparent);
+  --control-fill: var(--control-on);
+
+  // shape and density: the desk is compact (26px buttons, 6px corners)
+  --radius-control: var(--r);
+  --radius-panel: 8px;
+  --radius-surface: 10px;
+  --radius-pill: 999px;
+  --control-height-sm: 26px;
+  --control-height-md: 30px;
+  --control-height-lg: 34px;
+  --space-1: 0.25rem; --space-2: 0.5rem; --space-3: 0.75rem; --space-4: 1rem;
+  --space-5: 1.125rem; --space-6: 1.25rem; --space-8: 1.5rem; --space-10: 2rem;
+  --focus-ring: transparent;
+  --font-display: var(--sans);
+  --font-body: var(--sans);
+
+  // shadows
+  --shadow-resting: 0 1px 2px rgb(0 0 0 / 14%);
+  --shadow-raised: var(--lift);
+  --shadow-floating: var(--shadow);
+
+  // type scale, easing and durations copied unchanged from Arc's foundation
+  --text-xs: .75rem; --text-sm: .8125rem; --text-base: .9375rem; --text-lg: 1.0625rem;
+  --text-xl: 1.25rem; --text-2xl: 1.375rem; --text-3xl: 1.75rem;
+  --text-4xl: 2.125rem; --text-5xl: 2.5rem;
+  --text-field: .875rem;
+  --text-field-floor: 0px;
+  --tracking-display: -.03em; --tracking-body: -.01em;
+  --leading-display: 1.1; --leading-body: 1.4;
+  --ease-enter: cubic-bezier(.16,1,.3,1);
+  --ease-standard: cubic-bezier(.22,1,.36,1);
+  --ease-exit: cubic-bezier(.7,0,.84,0);
+  --ease-in-out: cubic-bezier(.65,0,.35,1);
+  --ease-spring: linear(0, 0.0213, 0.0739, 0.1443, 0.2235, 0.305, 0.3849, 0.4606, 0.5305, 0.594, 0.6508, 0.7011, 0.7452, 0.7836, 0.8168, 0.8454, 0.8699, 0.8907, 0.9084, 0.9234, 0.9361, 0.9467, 0.9557, 0.9632, 0.9694, 0.9747, 0.979, 0.9826, 0.9857, 0.9882, 0.9902, 0.992, 0.9934, 0.9946, 0.9955, 0.9963, 1);
+  --duration-instant: 100ms; --duration-fast: 150ms; --duration-standard: 200ms; --duration-considered: 360ms; --duration-spring: 440ms;
+}

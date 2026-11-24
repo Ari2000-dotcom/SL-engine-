@@ -2,6 +2,8 @@ import { Add, TrashCan } from '../icons';
 import { useState } from 'react';
 import { saveRisk } from '../api';
 import { PageHead } from '../components/cards';
+import { NumberField } from '../components/arc/number-field/number-field';
+import Toast from '../components/arc/toast/toast';
 import type { RiskRule, RiskSetting, Segment, StateView } from '../types';
 
 const SEGMENTS: Segment[] = ['EQ', 'FUT', 'OPT', 'CUR', 'COM'];
@@ -32,12 +34,12 @@ export function Risk({ view, token }: { view: StateView; token: string }) {
   const [rules, setRules] = useState<RiskRule[]>(initial);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
+  const [saved, setSaved] = useState(false);
 
   const patch = (i: number, fn: (r: RiskRule) => RiskRule) => {
     setMsg(null);
     setRules((rs) => rs.map((r, j) => (j === i ? fn(r) : r)));
   };
-  const num = (v: string) => (v === '' ? NaN : Number(v));
 
   const save = async () => {
     const problem = validate(rules);
@@ -54,7 +56,8 @@ export function Risk({ view, token }: { view: StateView; token: string }) {
         },
       }));
       await saveRisk(token, { rules: clean });
-      setMsg({ kind: 'success', text: 'Saved. Every leg was re-checked against the new limits.' });
+      setMsg(null);
+      setSaved(true);
     } catch (e) {
       setMsg({ kind: 'error', text: e instanceof Error ? e.message : 'Could not save' });
     } finally {
@@ -100,14 +103,28 @@ export function Risk({ view, token }: { view: StateView; token: string }) {
                       <option value="RUPEE">Rupees per leg</option>
                     </select>
                   </label>
-                  <label className="fld">
-                    <span>{percent ? 'Maximum loss (%)' : 'Maximum loss (₹)'}</span>
-                    <input type="number" step="any" value={Number.isNaN(r.setting[limit]) ? '' : r.setting[limit]} onChange={(e) => patch(i, (x) => ({ ...x, setting: { ...x.setting, [limit]: num(e.target.value) } }))} />
-                  </label>
-                  <label className="fld">
-                    <span>Grace (seconds)</span>
-                    <input type="number" min="0" max="3600" value={Number.isNaN(r.setting.grace_sec) ? '' : r.setting.grace_sec} onChange={(e) => patch(i, (x) => ({ ...x, setting: { ...x.setting, grace_sec: num(e.target.value) } }))} />
-                  </label>
+                  <NumberField
+                    size="sm"
+                    label={percent ? 'Maximum loss (%)' : 'Maximum loss (₹)'}
+                    value={Number.isNaN(r.setting[limit]) ? DEFAULT[limit] : r.setting[limit]}
+                    min={0}
+                    max={percent ? 1000 : 100000000}
+                    step={percent ? 0.5 : 100}
+                    suffix={percent ? '%' : undefined}
+                    prefix={percent ? undefined : '₹'}
+                    onValueChange={(v) => patch(i, (x) => ({ ...x, setting: { ...x.setting, [limit]: v } }))}
+                  />
+                  <NumberField
+                    size="sm"
+                    label="Grace (seconds)"
+                    value={Number.isNaN(r.setting.grace_sec) ? DEFAULT.grace_sec : r.setting.grace_sec}
+                    min={0}
+                    max={3600}
+                    step={1}
+                    largeStep={15}
+                    suffix=" s"
+                    onValueChange={(v) => patch(i, (x) => ({ ...x, setting: { ...x.setting, grace_sec: Math.round(v) } }))}
+                  />
                   {!defaultRule && (
                     <button type="button" className="btn risk-grid__remove" onClick={() => {
                       setMsg(null);
@@ -135,6 +152,9 @@ export function Risk({ view, token }: { view: StateView; token: string }) {
           </div>
         </form>
       </section>
+      <div className="toast-dock">
+        <Toast title="Risk limits saved" description="Every leg was re-checked against the new limits." open={saved} onOpenChange={setSaved} />
+      </div>
     </>
   );
 }

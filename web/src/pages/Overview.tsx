@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { fmtDuration } from '../format';
+import Switch from '../components/arc/switch/switch';
 import { ClientsTable, Empty, IncidentsTable, LegsTable, type Lookups, type OpenLeg } from '../components/tables';
 import { Metric, PageHead } from '../components/cards';
 import type { Page } from '../components/Shell';
@@ -182,7 +183,7 @@ export function Overview({ view, now, look, onAck, ackBusy, onNav, onOpen, selec
                 <Search size={16} aria-hidden="true" />
                 <input aria-label="Find a client" placeholder="Find a client or desk" value={q} onChange={(e) => setQ(e.target.value)} />
               </div>
-              <label className="check"><input type="checkbox" checked={problemsOnly} onChange={(e) => setProblemsOnly(e.target.checked)} /><span>Needs attention only</span></label>
+              <Switch label="Needs attention only" checked={problemsOnly} onCheckedChange={setProblemsOnly} />
             </div>
           )}
           {clientRows.length ? <ClientsTable rows={clientRows} onPick={openBook} /> : (

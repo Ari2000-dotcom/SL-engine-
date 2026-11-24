@@ -1,5 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { BROKER_NAME } from '../format';
+import { Tooltip } from './arc/tooltip/tooltip';
 import { Asleep, Book, Close, ConnectionSignal, Dashboard, Light, Logout, Notification, NotificationOff, Search, Security, Settings, SidePanelClose, SidePanelOpen, Table, WarningAlt } from '../icons';
 import type { Link } from '../hooks';
 import type { Account, ClientOverview, Role } from '../types';
@@ -266,18 +267,19 @@ export function Toolbar({ role, link, now, dark, onToggleDark, sound, onToggleSo
   return (
     <header className="toolbar">
       <div className="toolbar__start">
-        <button
-          type="button"
-          className="iconbtn toolbar__menu"
-          aria-label={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
-          title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
-          aria-expanded={sidebarOpen}
-          aria-controls={SIDEBAR_ID}
-          aria-haspopup={mobile ? 'dialog' : undefined}
-          onClick={onToggleSidebar}
-        >
-          {sidebarOpen ? <SidePanelClose size={20} aria-hidden="true" /> : <SidePanelOpen size={20} aria-hidden="true" />}
-        </button>
+        <Tooltip content={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'} side="bottom">
+          <button
+            type="button"
+            className="iconbtn toolbar__menu"
+            aria-label={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+            aria-expanded={sidebarOpen}
+            aria-controls={SIDEBAR_ID}
+            aria-haspopup={mobile ? 'dialog' : undefined}
+            onClick={onToggleSidebar}
+          >
+            {sidebarOpen ? <SidePanelClose size={20} aria-hidden="true" /> : <SidePanelOpen size={20} aria-hidden="true" />}
+          </button>
+        </Tooltip>
         {!mobile && !sidebarOpen && <span className="toolbar__name">RMS Desk</span>}
         <Command pages={ITEMS.filter((item) => !item.adminOnly || role === 'ADMIN')} suspendShortcut={suspendShortcuts} {...search} />
       </div>
@@ -287,12 +289,16 @@ export function Toolbar({ role, link, now, dark, onToggleDark, sound, onToggleSo
         </span>
         <span className={`feed feed--${link}`} role="status"><i aria-hidden="true" />{linkText}</span>
         <div className="toolbar__controls">
-          <button type="button" className="iconbtn" onClick={onToggleSound} aria-label={sound ? 'Mute alert sound' : 'Turn on alert sound'} title={sound ? 'Mute alert sound' : 'Turn on alert sound'}>
-            {sound ? <Notification size={20} aria-hidden="true" /> : <NotificationOff size={20} aria-hidden="true" />}
-          </button>
-          <button type="button" className="iconbtn" onClick={onToggleDark} aria-label={dark ? 'Switch to light theme' : 'Switch to dark theme'} title={dark ? 'Light theme' : 'Dark theme'}>
-            {dark ? <Light size={20} aria-hidden="true" /> : <Asleep size={20} aria-hidden="true" />}
-          </button>
+          <Tooltip content={sound ? 'Mute alert sound' : 'Turn on alert sound'} side="bottom">
+            <button type="button" className="iconbtn" onClick={onToggleSound} aria-label={sound ? 'Mute alert sound' : 'Turn on alert sound'}>
+              {sound ? <Notification size={20} aria-hidden="true" /> : <NotificationOff size={20} aria-hidden="true" />}
+            </button>
+          </Tooltip>
+          <Tooltip content={dark ? 'Light theme' : 'Dark theme'} side="bottom">
+            <button type="button" className="iconbtn" onClick={onToggleDark} aria-label={dark ? 'Switch to light theme' : 'Switch to dark theme'}>
+              {dark ? <Light size={20} aria-hidden="true" /> : <Asleep size={20} aria-hidden="true" />}
+            </button>
+          </Tooltip>
         </div>
       </div>
     </header>

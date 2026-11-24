@@ -62,10 +62,10 @@
   --strip-edge: #232323;
   --hair: #232323;
   --rule: #232323;
-  --text: #c8c8c8;
-  --text-1: #b5b5b5;
-  --text-2: #979797;
-  --text-3: #777777;
+  --text: #d1d1d1;
+  --text-1: #c2c2c2;
+  --text-2: #ababab;
+  --text-3: #969696;
   --accent: #c8c8c8;
   --accent-fill: #bdbdbd;
   --accent-ink: #141414;
@@ -117,8 +117,8 @@
   --gutter: 16px;
 
   --sidebar-bg: #1a1a1a;
-  --sidebar-text: #c8c8c8;
-  --sidebar-muted: #7a7a7a;
+  --sidebar-text: #d1d1d1;
+  --sidebar-muted: #a0a0a0;
   --sidebar-edge: #232323;
   --sidebar-hover: #1f1f1f;
   --sidebar-active: #2c2c2c;
@@ -2901,3 +2901,25 @@ p { margin: 0; }
 .tray, .core { border-color: var(--line); }
 .pager { color: var(--text-3); font-size: var(--t-xs); }
 .toolbar__clock { font-variant-numeric: tabular-nums; color: var(--text-3); }
+
+// Arc toast: it lays itself out in normal flow, so the desk pins a dock for it to the bottom centre.
+.toast-dock {
+  position: fixed;
+  inset: auto 0 calc(var(--s5, 14px) + 28px) 0;
+  z-index: 60;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  > * { pointer-events: auto; }
+}
+
+// Arc number field inside the risk form: label colour follows the desk's other field labels.
+.risk-grid [class*='_label_'] { color: var(--text-2); }
+
+// Arc animated counter inside a metric card: keep the card's own number style, only the digit roll is Arc's.
+.metric__value [class*='_counter_'] {
+  font: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  color: inherit;
+}

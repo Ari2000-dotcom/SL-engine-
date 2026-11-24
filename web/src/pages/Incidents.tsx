@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { PageHead } from '../components/cards';
+import SegmentedControl from '../components/arc/segmented-control/segmented-control';
 import { Empty, IncidentsTable, type Lookups, type OpenLeg } from '../components/tables';
 import { Add, ConnectionSignal, Notification, StatProtected } from '../icons';
 import type { StateView } from '../types';
@@ -53,13 +54,12 @@ export function Incidents({ view, now, look, onAck, ackBusy, onOpen, selected }:
       <PageHead title="Incidents" />
       <section className="core incident-results" aria-label="Incident queue">
         <header className="incident-results__toolbar">
-          <div className="incident-filters" role="group" aria-label="Filter incidents">
-            {TAB_ORDER.map((id) => (
-              <button key={id} type="button" className="incident-filter" aria-pressed={tab === id} aria-controls="incident-results" onClick={() => setTab(id)}>
-                {FILTERS[id].label}<span className="num">{groups[id].length}</span>
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            label="Filter incidents"
+            value={tab}
+            onValueChange={(v) => setTab(v as Tab)}
+            options={TAB_ORDER.map((id) => ({ value: id, label: FILTERS[id].label, accessory: <span className="num">{groups[id].length}</span> }))}
+          />
           {tab !== 'closed' && rows.length > 0 && (
             <ul className="legend" aria-label="Incident severity">
               <li><i className="sw sw--red" aria-hidden="true" />Critical</li>

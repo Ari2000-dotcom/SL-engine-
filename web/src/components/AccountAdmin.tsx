@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { KeyRound, RefreshCw, Trash2 } from 'lucide-react';
+import { ExpandingButtonGroup } from './arc/ExpandingButtonGroup';
 import { addAccount, removeAccount, setAccountToken, type ManagedAccount, type NewAccount } from '../api';
 import { BROKER_NAME, fmtAgo } from '../format';
 import type { Broker, ClientOverview } from '../types';
@@ -263,15 +265,6 @@ export function ManagedList({ token, rows, clients, now, onChanged }: { token: s
                     </span>
                   )}
                   <div className="mlist__actions">
-                    {r.auto_login ? (
-                      <button type="button" className="btn" disabled={busy} onClick={() => void retry(r.account_id)}>
-                        Retry sign-in
-                      </button>
-                    ) : (
-                      <button type="button" className="btn" onClick={() => toggleRenew(r.account_id)}>
-                        Renew token
-                      </button>
-                    )}
                     {confirm === r.account_id ? (
                       <>
                         <button type="button" className="btn btn--danger" disabled={busy} onClick={() => void remove(r.account_id)}>
@@ -282,9 +275,17 @@ export function ManagedList({ token, rows, clients, now, onChanged }: { token: s
                         </button>
                       </>
                     ) : (
-                      <button type="button" className="btn" onClick={() => setConfirm(r.account_id)}>
-                        Remove
-                      </button>
+                      <ExpandingButtonGroup
+                        size="sm"
+                        label={`Actions for ${r.account_id}`}
+                        items={[
+                          r.auto_login
+                            ? { id: 'retry', label: 'Retry sign-in', icon: <RefreshCw />, disabled: busy, onSelect: () => retry(r.account_id) }
+                            : { id: 'renew', label: 'Renew token', icon: <KeyRound />, onSelect: () => toggleRenew(r.account_id) },
+                          // Removing still asks first: this opens the Confirm / Keep pair shown above.
+                          { id: 'remove', label: 'Remove', icon: <Trash2 />, tone: 'danger', onSelect: () => setConfirm(r.account_id) },
+                        ]}
+                      />
                     )}
                   </div>
                 </div>

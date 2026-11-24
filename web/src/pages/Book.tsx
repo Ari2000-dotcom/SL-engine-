@@ -1,5 +1,7 @@
 import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import { fetchBook } from '../api';
+import SegmentedControl from '../components/arc/segmented-control/segmented-control';
+import Switch from '../components/arc/switch/switch';
 import { ClientBoard } from '../components/ClientBoard';
 import { ConnectionPill, StatusPill, coverageTone } from '../components/StatusPill';
 import { Empty, FlashCell, IncidentsTable, rowKeys, type Lookups, type OpenLeg } from '../components/tables';
@@ -309,14 +311,12 @@ export function Book({ view, now, look, token, onAuthLost, onOpen, selected, onA
   );
 
   const viewSwitch = (
-    <div className="seg" role="group" aria-label="Layout">
-      <button type="button" aria-pressed={mode === 'four'} onClick={() => setMode('four')}>
-        Client boards
-      </button>
-      <button type="button" aria-pressed={mode === 'one'} onClick={() => setMode('one')}>
-        One account
-      </button>
-    </div>
+    <SegmentedControl
+      label="Layout"
+      value={mode}
+      onValueChange={(v) => setMode(v as 'one' | 'four')}
+      options={[{ value: 'four', label: 'Client boards' }, { value: 'one', label: 'One account' }]}
+    />
   );
 
   if (mode === 'four') {
@@ -332,10 +332,7 @@ export function Book({ view, now, look, token, onAuthLost, onOpen, selected, onA
             <Search size={16} aria-hidden="true" />
             <input aria-label="Find a client or account" placeholder="Find client or account" value={query} onChange={(e) => setQuery(e.target.value)} />
           </div>
-          <label className="check">
-            <input type="checkbox" checked={onlyProblems} onChange={(e) => setOnlyProblems(e.target.checked)} />
-            <span>Needs attention only</span>
-          </label>
+          <Switch label="Needs attention only" checked={onlyProblems} onCheckedChange={setOnlyProblems} />
           <span className="rail-count">
             {rail.groups.length} of {view.overview.length} clients · {shown} accounts
           </span>
@@ -389,10 +386,7 @@ export function Book({ view, now, look, token, onAuthLost, onOpen, selected, onA
               <Search size={16} aria-hidden="true" />
               <input aria-label="Find a client or account" placeholder="Find client or account" value={query} onChange={(e) => setQuery(e.target.value)} />
             </div>
-            <label className="check">
-              <input type="checkbox" checked={onlyProblems} onChange={(e) => setOnlyProblems(e.target.checked)} />
-              <span>Needs attention only</span>
-            </label>
+            <Switch label="Needs attention only" checked={onlyProblems} onCheckedChange={setOnlyProblems} />
             <span className="rail-count">
               {rail.groups.length} of {view.overview.length} clients · {shown} accounts
             </span>
